@@ -9,6 +9,8 @@ This command line tool identifies farms of Sia hosts by geolocation and allows t
 
 Once these singular entities ("farms") are identified by Decentralizer and presented to the user, the user can decide to cancel the contract with whichever host he decides, or to let Decentralizer to remove all but one of the contracts formed with each centralized entity.
 
+For safety, hosts which geolocation can't be assessed (very uncommon) are considered part of a farm.
+
 ## Usage of the binaries:
 
 * 1 - Open Sia. Version 1.3.4 or above is required (for RC versions, RC3 or above).

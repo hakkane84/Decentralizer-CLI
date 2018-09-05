@@ -32,11 +32,17 @@ Canceling contracts with more than 15-20 hosts in one single operation is not re
 * Use the same commands mentioned above, as for example `node decentralizer.js remove auto`
 * An additional command is available: `test x`, which will remove `x` random contracts from your list. It is meant exclusively for developers testing Sia's file repair
 
-## Dependencies of the non-compiled script:
+## Dependencies of the non-compiled script
 
-In order to use the node.js script contained in this repository, the following dependency are required:
+In order to use the node.js script contained in this repository, the following dependencies are required:
 
 * Sia.js
+* babel-runtime
+
+## Donations
+
+Siacoin: bde3467039a6d9a563224330ff7578a027205f1f2738e1e0daf134d8ded1878cf5870c41927d
+
 
 
 

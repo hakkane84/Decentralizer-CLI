@@ -1,6 +1,6 @@
 var fs = require('fs');
-var sia = require('C:/nodejs/node_modules/npm/node_modules/sia.js');
-var http = require('C:/nodejs/node_modules/npm/node_modules/request');
+var sia = require('sia.js');
+var http = require('request');
 
 // Passing arguments
 var argument1 = process.argv[2]

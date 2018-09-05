@@ -24,6 +24,8 @@ After canceling contracts, your Sia client will form replacement contracts with 
 
 Canceling contracts with more than 15-20 hosts in one single operation is not recommended unless you keep a local copy of all the files. Otherwise, cancel first a few contracts, allow file repair to take the redundancy back to 3x and then cancel a second batch of contracts.
 
+![screenshot](https://github.com/hakkane84/Decentralizer/blob/master/screenshot.jpg)
+
 ## Usage of the non-compiled script
 
 * Install node.js

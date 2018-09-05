@@ -1,3 +1,4 @@
+![logo](https://github.com/hakkane84/Decentralizer/blob/master/logo.png)
 # Decentralizer
 Renter's tool for detecting and eliminating centralization in Sia contracts. "Vaccinates" against sybil attacks.
 

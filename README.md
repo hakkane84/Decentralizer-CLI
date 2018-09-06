@@ -2,8 +2,6 @@
 # Decentralizer
 Renter's tool for detecting and eliminating centralization in Sia contracts. "Vaccinates" against sybil attacks.
 
-https://keops.cc/decentralizer
-
 Ready-to-use binaries for Windows, MacOS and Linux can be downloaded here: https://github.com/hakkane84/Decentralizer/releases
 
 This command line tool identifies farms of Sia hosts by geolocation and allows the renter to cancel the contracts formed with these hosts. Centralization of hosts is problematic, as it implicates that redundant copies of the files are being stored in the same locationby presumably the same operator (defeating the purpose of the redundancy). I also exposes the renter to malicious hosts performing a sybil attack by denying acccess to files after controling a number of hosts large enough. This is why it is so important to identify these singular entities and avoid renewing file contracts with them.
@@ -23,6 +21,8 @@ For safety, hosts which geolocation can't be assessed (very uncommon) are consid
 After canceling contracts, your Sia client will form replacement contracts with new hosts, as long as your wallet is unlocked. Some time after creating these new contracts (this can be accelerated by restarting Sia), Sia's file repair capabilities will upload the pieces of files to the new hosts. Take in mind that the **file repair will icur on Siacoin expenses**: new contracts will be formed, data will be uploaded to the replacement hosts and if you don't have the files locally anymore, the files will be downloaded first from the rest of available hosts (incurring in download expenses).
 
 Canceling contracts with more than 15-20 hosts in one single operation is not recommended unless you keep a local copy of all the files. Otherwise, cancel first a few contracts, allow file repair to take the redundancy back to 3x and then cancel a second batch of contracts.
+
+These binaries were compiled using `pkg` (https://github.com/zeit/pkg)
 
 ![screenshot](https://github.com/hakkane84/Decentralizer/blob/master/screenshot.jpg)
 

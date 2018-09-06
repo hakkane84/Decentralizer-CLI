@@ -4,7 +4,7 @@ Renter's tool for detecting and eliminating centralization in Sia contracts. "Va
 
 Ready-to-use binaries for Windows, MacOS and Linux can be downloaded here: https://github.com/hakkane84/Decentralizer/releases
 
-This command line tool identifies farms of Sia hosts by geolocation and allows the renter to cancel the contracts formed with these hosts. Centralization of hosts is problematic, as it implicates that redundant copies of the files are being stored in the same location by presumably the same operator (defeating the purpose of the redundancy). I also exposes the renter to malicious hosts performing a sybil attack by denying acccess to files after controling a number of hosts large enough. This is why it is so important to identify these singular entities and avoid renewing file contracts with them.
+This command line tool identifies farms of Sia hosts by geolocation and allows the renter to cancel the contracts formed with these hosts. Centralization of hosts is problematic, as it implicates that redundant copies of the files are being stored in the same location by presumably the same operator (defeating the purpose of the redundancy). It also exposes the renter to malicious hosts performing a sybil attack by denying acccess to files after controling a number of hosts large enough. This is why it is so important to identify these singular entities and avoid renewing file contracts with them.
 
 Once these singular entities ("farms") are identified by Decentralizer and presented to the user, the user can decide to cancel the contract with whichever host he decides, or to let Decentralizer remove all but one of the contracts formed with each centralized entity.
 

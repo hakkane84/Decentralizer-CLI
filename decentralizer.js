@@ -130,7 +130,8 @@ function processHosts(contracts) {
     var farmNumber = 1
     var farmList = [{ // Initializing array
         farm: "Other hosts",
-        hosts: []
+        hosts: [],
+	contracts: contracts.length
     },{
         farm: "Geolocation unavailable",
         hosts: []
@@ -248,7 +249,8 @@ function removeContract(argument2) {
                     hostCount++
                 }
             }
-            if (contractsToRemove.length > 15) {
+	    var totalcontracts = farmList[0].contracts
+            if (contractsToRemove.length > (totalcontracts / 3)) {
                 console.log("WARNING: Removing this amount of hosts in a single action can provoke data loss if you do not have the files locally anymore. It is recommended instead to remove a smaller (<15) number of hosts and allow file redundancy repair to 3x before proceeding with the next batch of hosts to remove. Proceed only at your own risk")
                 console.log()
                 console.log("This will remove " + contractsToRemove.length + " contracts with hosts. Proceed? (y/n)")

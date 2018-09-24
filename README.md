@@ -1,5 +1,8 @@
 ![logo](https://github.com/hakkane84/Decentralizer/blob/master/logo.png)
 # Decentralizer
+
+Website: https://keops.cc/decentralizer
+
 Renter's tool for detecting and eliminating centralization in Sia contracts. "Vaccinates" against sybil attacks.
 
 Ready-to-use binaries for Windows, MacOS and Linux can be downloaded here: https://github.com/hakkane84/Decentralizer/releases

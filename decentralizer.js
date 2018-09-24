@@ -7,7 +7,7 @@ var argument1 = process.argv[2]
 var argument2 = process.argv[3]
 
 console.log()
-console.log("*** KEOPS DECENTRALIZER v0.1.0 ***")
+console.log("*** KEOPS DECENTRALIZER v0.2.0 ***")
 
 if (argument1 == "scan") {
     siaContracts()
@@ -84,6 +84,7 @@ function requestIP(contracts, i) {
                 //console.log("(" + (i+1) + "/" + contracts.length + ") - " + hostip)
                 contracts[i].lon = lon
                 contracts[i].lat = lat
+                contracts[i].as = ipAPI.as // Also adding the ISP
                 nextIP(contracts, i)
             })
             response.on('error', function (chunk5) {
@@ -111,20 +112,23 @@ function processHosts(contracts) {
 
     // Finding centralized farms
     var hostsGroups = []
-    for (var i = 0; i < contracts.length; i++) { // For each contrct
+    for (var i = 0; i < contracts.length; i++) { // For each contract
         var hostInGroupBool = false
         for (var j = 0; j < hostsGroups.length; j++) {
-            if (contracts[i].lat == hostsGroups[j][0].lat && contracts[i].lon == hostsGroups[j][0].lon) { // Checking if geolocation is the same as the first element in a group
+            if (contracts[i].lat == hostsGroups[j][0].lat && contracts[i].lon == hostsGroups[j][0].lon && contracts[i].as == hostsGroups[j][0].as) { // Checking if geolocation is the same as the first element in a group. Has to match the ISP too
                 hostsGroups[j].push(contracts[i]) // Add host to the group
                 hostInGroupBool = true
                 //console.log("New farm member identified")
+                contracts[i].assigned = true // Flag that the contract has been already included in a farm
             }
         }
         if (hostInGroupBool == false) {
+            contracts[i].assigned = true // Flag that the contract has been already included in a farm
             var newGroup = [contracts[i]]
             hostsGroups.push(newGroup) // Add a new group
         }
     }
+
 
     // Rearranging the array
     var farmNumber = 1
@@ -146,7 +150,8 @@ function processHosts(contracts) {
                     ip: hostsGroups[j][k].netaddress,
                     contract: hostsGroups[j][k].id,
                     cost: parseFloat((hostsGroups[j][k].totalcost/1000000000000000000000000).toFixed(2)),
-                    data: parseFloat((hostsGroups[j][k].size/1000000000).toFixed(2)) // In GB
+                    data: parseFloat((hostsGroups[j][k].size/1000000000).toFixed(2)), // In GB
+                    pubkey: hostsGroups[j][k].hostpublickey.key
                 }
                 farmEntry.hosts.push(hostEntry)
             }
@@ -161,10 +166,16 @@ function processHosts(contracts) {
             farmEntry.hosts.sort(compare);
             
             // Push data
-            if (hostsGroups[j][0].lat > 0) { // Geolocation is a number
+            if (hostsGroups[j][0].lat > 0 || hostsGroups[j][0].lat < 0) { // Geolocation is a number
                 farmList.push(farmEntry)
                 farmNumber++
-            } else { // Geolocation unavailable. Replace element 1 by this
+            } else { // Geolocation unavailable host group
+                // consider these hosts unassigned, as we may have better chances of assigning them later checking with SiaStats
+                for (var p = 0; p < farmEntry.hosts.length; p++) {
+                    farmEntry.hosts[p].assigned = false
+                }
+                
+                // Replace element 1 by this
                 farmList[1].hosts = farmEntry.hosts
             }
             
@@ -174,7 +185,8 @@ function processHosts(contracts) {
                 ip: hostsGroups[j][0].netaddress,
                 contract: hostsGroups[j][0].id,
                 cost: parseFloat((hostsGroups[j][0].totalcost/1000000000000000000000000).toFixed(2)),
-                data: parseFloat((hostsGroups[j][0].size/1000000000).toFixed(2)) // In GB
+                data: parseFloat((hostsGroups[j][0].size/1000000000).toFixed(2)), // In GB
+                pubkey: hostsGroups[j][0].hostpublickey.key
             }
             // Pushing it to the element 0 of farmList, the "Other hosts"
             farmList[0].hosts.push(hostEntry)
@@ -186,27 +198,181 @@ function processHosts(contracts) {
     var string = JSON.stringify(farmList)
     stream.write(string)
 
+    siastatsQuery(farmList, contracts)
+}
+
+
+function siastatsQuery(farmList, contracts) {
+    process.stdout.write("\nExtending the search of farms - Connecting to SiaStats.info... ")
+    http.get("http://siastats.info/dbs/farms_api.json").on('response', function (response) {
+        var body4 = '';
+        var i4 = 0;
+        response.on('data', function (chunk4) {
+            i4++;
+            body4 += chunk4;
+        });
+        response.on('end', function () {
+            testChar = body4.slice(0,1)
+            if (testChar == "[") {
+                var siastatsFarms = JSON.parse(body4)
+                process.stdout.write("Done\n")
+                
+                // On success, save the file locally for future access in case SiaStats is unavailable
+                var stream = fs.createWriteStream('siastats_farms_database.json')
+                var string = JSON.stringify(siastatsFarms)
+                stream.write(string)
+                
+                // Proceed
+                siastatsProcess(farmList, contracts, siastatsFarms)
+            } else {
+                siastatsOpenFile(farmList, contracts)
+            }
+        })
+        response.on('error', function (chunk4) {
+            siastatsOpenFile(farmList, contracts)
+        });
+    })
+}
+
+function siastatsOpenFile(farmList, contracts) {
+    // On failed retrieval, open the local file instead
+    process.stdout.write("Failed\n")
+    process.stdout.write("Opening the local copy of SiaStats database instead... ")
+    var stream2 = fs.createReadStream('siastats_farms_database.json')
+    var data2= ''
+    var chunk2
+    stream2.on('readable', function() { //Function just to read the whole file before proceeding
+        while ((chunk2=stream2.read()) != null) {
+            data2 += chunk2;}
+    });
+    stream2.on('end', function() {
+        if (data2 != "") {
+            var siastatsFarms = JSON.parse(data2)
+        } else {
+            var siastatsFarms = []
+        }
+        process.stdout.write("Done\n")
+        siastatsProcess(farmList, contracts, siastatsFarms)
+    })
+    stream2.on('error', function() {
+        // On error opening the file, just proceed to show the farms on screen
+        process.stdout.write("Failed\n")
+        showFarms(farmList)
+    })
+}
+
+
+function siastatsProcess(farmList, contracts, siastatsFarms) {
+    // This function compares our farmList with the list of siastats farms, to add the remaining farm-positive contracts to farmList
+
+    // A - Create a temporal array where we add contracts not yet assigned, and belonging to farms, to groups
+    // Iterate on the list of farms, on each host of it
+    var extraGroups = []
+    for (var j = 0; j < siastatsFarms.length; j++) {
+        extraGroups.push({ // Adding an empty sub-array. We will fill it with contracts if positive for a farm
+            farm: siastatsFarms[j].farm,
+            hosts: []
+        }) 
+        for (var k = 0; k < siastatsFarms[j].hosts.length; k++) {
+            // Iterate on the list of contracts not yet assigned to a farm
+            for (var i = 0; i< contracts.length; i++) {
+                if (contracts[i].assigned != true && siastatsFarms[j].hosts[k].pubkey == contracts[i].hostpublickey.key){ // Match of public keys: the host is in a farm!
+                    extraGroups[j].hosts.push(contracts[i])
+                }
+            }
+        }
+    }
+    
+    // B - Assign these groups to farms already identified (farmsList). Add a flag about SiaStats
+    // Iterate on the farmList to find matches with the siaStats database. If a match, we will iterate on extraGroups and add hosts if they match the farm ID
+    for (var i = 0; i < farmList.length; i++) {
+        for (var j = 0; j < farmList[i].hosts.length; j++) {
+
+            // Iterating on siastatsFarms
+            for (var k = 0; k < siastatsFarms.length; k++) {
+                for (l = 0; l < siastatsFarms[k].hosts.length; l++) {
+                    if (farmList[i].hosts[j].pubkey == siastatsFarms[k].hosts[l].pubkey) { // Matched farm
+                        
+                        // Now we iterate on our newGroups array, to find the one carrying the .farm property that matches
+                        for (var m = 0; m < extraGroups.length; m++) {
+                            if (extraGroups[m].farm == siastatsFarms[k].farm) { // Match!
+                                
+                                // B1 - Assign the hosts of the group to the farm list
+                                for (var n = 0; n < extraGroups[m].hosts.length; n++) {
+                                    farmList[i].hosts.push({
+                                        ip: extraGroups[m].hosts[n].netaddress,
+                                        contract: extraGroups[m].hosts[n].id,
+                                        cost: parseFloat((extraGroups[m].hosts[n].totalcost/1000000000000000000000000).toFixed(2)),
+                                        data: parseFloat((extraGroups[m].hosts[n].size/1000000000).toFixed(2)), // In GB
+                                        siastatsFlag: true // Add the flag to the latest host of that farm (the one we just pushed)
+                                    })
+                                }
+
+                                // B2 - Remove the group from extraGroups
+                                extraGroups.splice(m, 1)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // C - Push unassigned groupd with 2+ contracts to a new farm. Add a flag about SiaStats
+    for (var i = 0; i < extraGroups.length; i++) {
+        if (extraGroups[i].hosts.length >= 2) {
+            // Initializing new entry
+            newEntry = {
+                farm: "SiaStats-" + extraGroups[i].farm,
+                hosts: []
+            }
+            for (var j = 0; j < extraGroups[i].hosts.length; j++) { // For each host in the group
+                newEntry.hosts.push({
+                    ip: extraGroups[i].hosts[j].netaddress,
+                    contract: extraGroups[i].hosts[j].id,
+                    cost: parseFloat((extraGroups[i].hosts[j].totalcost/1000000000000000000000000).toFixed(2)),
+                    data: parseFloat((extraGroups[i].hosts[j].size/1000000000).toFixed(2)), // In GB
+                    siastatsFlag: true // Add the flag to the latest host of that farm (the one we just pushed)
+                })
+            }
+
+            farmList.push(newEntry)
+        }
+    }
+
+    // Saving the file again, updated
+    var stream = fs.createWriteStream('farms.json')
+    var string = JSON.stringify(farmList)
+    stream.write(string)
+
     showFarms(farmList)
 }
 
 
 function showFarms(farmList) {
-    console.log("--------------------------------------------")
+    console.log("------------------------------------------------------")
     var listNumber = 1
     for (var i = 1; i < farmList.length; i++) {
         if (farmList[i].hosts.length > 0) { // For not displaying the not geolocated if there is no host in this category
             console.log("- " + farmList[i].farm + ":")
             for (var j = 0; j < farmList[i].hosts.length; j++) {
-                console.log("     * [" + listNumber + "] " + farmList[i].hosts[j].ip + " - Value: " + farmList[i].hosts[j].cost + "SC - Data: " + farmList[i].hosts[j].data + "GB")
-                listNumber++
+                if (farmList[i].hosts[j].siastatsFlag == true) { // Add a special labelling for hosts identified by SiaStats
+                    console.log('\x1b[42m%s\x1b[0m', "     * [" + listNumber + "] [*] " + farmList[i].hosts[j].ip + " - Value: " + farmList[i].hosts[j].cost + "SC - Data: " + farmList[i].hosts[j].data + "GB")
+                    listNumber++
+                } else {
+                    console.log("     * [" + listNumber + "] " + farmList[i].hosts[j].ip + " - Value: " + farmList[i].hosts[j].cost + "SC - Data: " + farmList[i].hosts[j].data + "GB")
+                    listNumber++
+                }
             }
         }
     }
     if (farmList.length <= 2) {
         console.log("No host farms have been found in your contracts list")
     }
-    console.log("--------------------------------------------")
+    console.log("------------------------------------------------------")
     if (farmList.length > 2) {
+        console.log("Hosts with a '[*]' and indicated in green represent those identified thanks to the extended search on SiaStats (check siastats.info/hosting_farms for more info)")
+        console.log()
         console.log("Scan complete. Use 'decentralizer remove auto' to remove all but the top host in each farm, or 'decentralizer remove x' for manually removing a host, where x is the number indicated in brackets")
     }
     console.log()
@@ -330,10 +496,10 @@ function removeTest(argument2) {
                     }
                 }
             }
-            if (contractsToRemove.length > 15) {
-                console.log("WARNING: Removing this amount of hosts in a single action can provoke data loss if you do not have the files locally anymore. It is recommended instead to remove a smaller (<15) number of hosts and allow file redundancy repair to 3x before proceeding with the next batch of hosts to remove. Proceed only at your own risk")
-                console.log()
-            } 
+            //if (contractsToRemove.length > 15) {
+                //console.log("WARNING: Removing this amount of hosts in a single action can provoke data loss if you do not have the files locally anymore. It is recommended instead to remove a smaller (<15) number of hosts and allow file redundancy repair to 3x before proceeding with the next batch of hosts to remove. Proceed only at your own risk")
+                //console.log()
+            //} 
             console.log("This will remove " + contractsToRemove.length + " contracts with hosts. Proceed? (y/n)")
 
             // Input form
@@ -403,6 +569,8 @@ function cancelContract(contractNum, contractsToRemove, attempt) {
             process.stdout.write(" RETRYING")
             if (attempt > 3) {
                 console.log("Error with command. This contract was not canceled: " + contractsToRemove[contractNum].ip)
+                contractNum++
+                cancelContract(contractNum, contractsToRemove, attempt)
             } else { // Retry up to 3 times
                 cancelContract(contractNum, contractsToRemove, attempt)
             }
@@ -413,6 +581,8 @@ function cancelContract(contractNum, contractsToRemove, attempt) {
         process.stdout.write(" RETRYING")
         if (attempt > 3) {
             console.log("Error connecting to Sia. This contract was not canceled: " + contractsToRemove[contractNum].ip)
+            contractNum++
+            cancelContract(contractNum, contractsToRemove, attempt)
         } else { // Retry up to 3 times
             cancelContract(contractNum, contractsToRemove, attempt)
         }

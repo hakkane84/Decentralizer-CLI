@@ -1,5 +1,8 @@
 ![logo](https://github.com/hakkane84/Decentralizer/blob/master/logo.png)
 # Decentralizer
+
+Website: https://keops.cc/decentralizer
+
 Renter's tool for detecting and eliminating centralization in Sia contracts. "Vaccinates" against sybil attacks.
 
 Ready-to-use binaries for Windows, MacOS and Linux can be downloaded here: https://github.com/hakkane84/Decentralizer/releases
@@ -8,13 +11,15 @@ This command line tool identifies farms of Sia hosts by geolocation and allows t
 
 Once these singular entities ("farms") are identified by Decentralizer and presented to the user, the user can decide to cancel the contract with whichever host he decides, or to let Decentralizer remove all but one of the contracts formed with each centralized entity.
 
+After the initial geolocation, Decentralizer connects to SiaStats.info and downloads a database of hosting farms. In addition to pure geolocation, SiaStats tracks hosts over time and employs additional algorithms, what allows discovering farms even if the farm operator changes the physical location of the hosts, uses VPNs or intentionally tries to block SiaStats at a network level. Overall, this additional database search reduces dramatically the chances of decoying a hosting farm operation. You can learn more about it at https://siastats.info/hosting_farms. In case SiaStats is unavailable (for example during to a DDoS attack to its servers), a local copy of this database is used (`siastats_farms_database.json`). This file can be updated manually: ask in the Sia official Discord in case you require an up-to-date database file.
+
 For safety, hosts whose geolocation can't be assessed (very uncommon) are considered part of a farm.
 
 ## Usage of the binaries:
 
 * 1 - Open Sia. Version 1.3.4 or above is required (for RC versions, RC3 or above).
 * 2 - Open a command line interface of your OS on the folder where you downloaded the binary.
-* 3 - Type `./decentralizer scan`. After the analysis, a numbered list of the detected hosts belonging to farms will be shown.
+* 3 - Type `./decentralizer scan`. After the analysis, a numbered list of the detected hosts belonging to farms will be shown. The hosts identified thanks to the extended search using the SiaStats database will be shown in green, preceeded by `[*]`
 * 4a- Type `./decentralizer remove auto` to allow the app to automatically cancel contracts with centralized hosts. Only the contract with the host holding more of your data of each farm will be kept. 
 * 4b- Alternatively, type `./decentralizer remove x` where `x` is the host number indicated inside brackets on the previously generated list. This will cancel the contract only with the specified host.
 
@@ -38,6 +43,10 @@ In order to use the node.js script contained in this repository, the following d
 
 * Sia.js
 * babel-runtime
+
+## Acknowledgements
+
+I want to thank [tbenz9](https://github.com/tbenz9) for his code contributions
 
 ## Donations
 

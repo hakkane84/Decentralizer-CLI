@@ -17,9 +17,9 @@ if (argument1 == "scan") {
     removeTest(argument2)
 } else {
     console.log("Invalid syntax")
-    console.log("   * decentralizer scan --> Analyzes contracts and shows host belonging farms, numbering the hosts")
-    console.log("   * decentralizer remove x --> Removes the host number 'x' (refer to the previous list) from your contracts")
-    console.log("   * decentralizer remove auto --> Removes all the duplicate hosts in a farm, leaving only one host per farm (the one holding more data)")
+    console.log("   * decentralizer scan --> Analyzes contracts and shows hosts belonging to hosting farms")
+    console.log("   * decentralizer remove x --> Removes the host numbered 'x' (refer to the 'decentralizer scan') from your contracts")
+    console.log("   * decentralizer remove auto --> Removes all but one of the duplicate hosts in a hosting farm")
     console.log()
 }
 
@@ -40,12 +40,12 @@ function siaContracts() {
             requestIP(contracts, i)
         })
         .catch((err) => {
-            console.log("Error retrieving data from Sia (is Sia working, synced and connected to internet? Try also this script again after restarting Sia)")
+            console.log("Error retrieving data from Sia. Is Sia working, synced and connected to internet? Try this script again after restarting Sia.")
             console.log()
         })
     })
     .catch((err) => {
-        console.log("Error connecting to Sia. Start the Sia app (either daemon or UI) or try again")
+        console.log("Error connecting to Sia. Start the Sia app (either daemon or UI) and try again")
         console.log()
     })
 }
@@ -373,7 +373,7 @@ function showFarms(farmList) {
     if (farmList.length > 2) {
         console.log("Hosts with a '[*]' and indicated in green represent those identified thanks to the extended search on SiaStats (check siastats.info/hosting_farms for more info)")
         console.log()
-        console.log("Scan complete. Use 'decentralizer remove auto' to remove all the hosts in farms (and those not geolocated) with the exception of the top one, or 'decentralizer remove x' for manually removing a host, where x is the number indicated in brackets")
+        console.log("Scan complete. Use 'decentralizer remove auto' to remove all but the top host in each farm, or 'decentralizer remove x' for manually removing a host, where x is the number indicated in brackets")
     }
     console.log()
 }
@@ -450,7 +450,7 @@ function removeContract(argument2) {
 
         })
         stream1.on('error', function() {
-            console.log("Error: Decentralizer needs to scan the contracts in first place. Run 'decentralizer scan' first")
+            console.log("Error: Decentralizer needs to scan the contracts first. Run 'decentralizer scan'")
             console.log()
         })
     } else {
@@ -529,7 +529,7 @@ function removeTest(argument2) {
         })
     } else {
         // Error
-        console.log("Syntax error in test second argument: indicate a number of hosts to remove (e.g. 'test 25')")
+        console.log("Syntax error in test second argument: indicate a number of hosts to remove (e.g. 'decentralizer test 25')")
         console.log()
     }
 }

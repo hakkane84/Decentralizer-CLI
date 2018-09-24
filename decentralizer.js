@@ -414,11 +414,7 @@ function removeContract(argument2) {
                     hostCount++
                 }
             }
-            if (contractsToRemove.length > 15) {
-                console.log("WARNING: Removing this amount of hosts in a single action can provoke data loss if you do not have the files locally anymore. It is recommended instead to remove a smaller (<15) number of hosts and allow file redundancy repair to 3x before proceeding with the next batch of hosts to remove. Proceed only at your own risk")
-                console.log()
-                console.log("This will remove " + contractsToRemove.length + " contracts with hosts. Proceed? (y/n)")
-            } else if (contractsToRemove.length == 1) {
+            if (contractsToRemove.length == 1) {
                 console.log("This will remove the contract with host: " + contractsToRemove[0].ip + " - Proceed? (y/n)")
             } else if (contractsToRemove.length == 0) {
                 console.log("No contracts to be removed with the selected parameters")

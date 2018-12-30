@@ -1,13 +1,15 @@
 {
   "name": "decentralizer",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Renter's tool for detecting and eliminating centralization in Sia contracts. \"Vaccinates\" against sybil attacks",
   "main": "decentralizer.js",
   "author": "Hakkane",
-  "license": "MIT",
+  "license": "GNU GPLv3",
   "bin": "decentralizer.js",
   "dependencies": {
     "babel-runtime": "^6.26.0",
-    "sia.js": "^0.4.2"
+    "get-json": "^1.0.1",
+    "sia.js": "^0.4.2",
+    "table": "^5.1.1"
   }
 }

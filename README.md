@@ -1,4 +1,4 @@
-![logo](https://github.com/hakkane84/Decentralizer/blob/master/logo.png)
+![logo](https://github.com/hakkane84/Decentralizer/blob/master/full_logo.png)
 # Decentralizer
 
 Website: https://keops.cc/decentralizer

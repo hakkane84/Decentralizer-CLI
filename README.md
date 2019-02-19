@@ -1,26 +1,27 @@
 ![logo](https://github.com/hakkane84/Decentralizer/blob/master/full_logo.png)
 # Decentralizer
 
+Contracts micro-managing and unsafe hosts protection for Sia (GUI)
+
 Website: https://keops.cc/decentralizer
 
-Renter's tool for detecting and eliminating centralization in Sia contracts. "Vaccinates" against sybil attacks.
+A tool for Sia renters that allows:
 
-Ready-to-use binaries for Windows, MacOS and Linux can be downloaded here: https://github.com/hakkane84/Decentralizer/releases
+* a) Micro-managing and data visualization about the formed contracts.
+* b) Creating filters of hosts, according to geolocation, Sia version, pricing and/or manual selection.
+* c) Detection of hosting farms and unsafe hosts, allowing cancelling contracts with them and/or filter them out. "Farms" represent multiple hosts sharing geolocation, most pprobably being controlled by the same opeprator. Centralization of hosts is problematic, as it implicates that redundant copies of the files are being stored in the same location (what defeats the purpose of the redundancy). It also exposes the renter to malicious hosts performing a sybil attack by denying acccess to files after controling a large enough number of hosts.
 
-This command line tool identifies farms of Sia hosts by geolocation and allows the renter to cancel the contracts formed with these hosts. Centralization of hosts is problematic, as it implicates that redundant copies of the files are being stored in the same location by presumably the same operator (defeating the purpose of the redundancy). It also exposes the renter to malicious hosts performing a sybil attack by denying acccess to files after controling a large enough number of hosts. This is why it is so important to identify these singular entities and avoid renewing file contracts with them.
+Decentralizer connects to SiaStats.info and downloads a database of hosting farms. In addition to pure geolocation, SiaStats tracks hosts over time and employs additional algorithms, what allows discovering farms even if the farm operator changes the physical location of the hosts, uses VPNs or intentionally tries to block SiaStats at a network level. Thanks to the use of these databases from SiaStats, unsafe hosts (i.e., hosts that are known to be performing a Sybil attack or provoke damage or any kind), will be shown with an alert message, allowing the user to avoid them. You can learn more about it at https://siastats.info/hosting_farms. In case SiaStats is unavailable (for example during to a DDoS attack to its servers), a local copy of this database is used (`farms_definition.json`). This file can be updated manually: ask in the Sia official Discord in case you require an up-to-date database file.
 
-Once these singular entities ("farms") are identified by Decentralizer and presented to the user, the user can decide to cancel the contract with whichever host they decide, or to let Decentralizer remove all but one of the contracts formed with each farm. Contracts formed with hosts not belonging to farms can be also individually cancelled.
+Ready-to-use binaries for Windows, MacOS and Linux can be downloaded here: https://github.com/hakkane84/Decentralizer-GUI/releases
 
-Decentralizer connects to SiaStats.info and downloads a database of hosting farms. In addition to pure geolocation, SiaStats tracks hosts over time and employs additional algorithms, what allows discovering farms even if the farm operator changes the physical location of the hosts, uses VPNs or intentionally tries to block SiaStats at a network level. Overall, this additional database search reduces dramatically the chances of decoying a hosting farm operation. You can learn more about it at https://siastats.info/hosting_farms. In case SiaStats is unavailable (for example during to a DDoS attack to its servers), a local copy of this database is used (`farms_definition.json`). This file can be updated manually: ask in the Sia official Discord in case you require an up-to-date database file.
-
-Thanks to the use of these databases from SiaStats, dangerous hosts (i.e., hosts that are known to be performing a Sybil attack or provoke damage or any kind), will be shown with an alert message, allowing the user to avoid them.
-
-For safety, hosts whose geolocation can't be assessed (very uncommon) are considered part of a farm.
+**Users preferring a graphical interface can use instead Decentralizer-GUI, which brings the same features in an easy and intuitive to use app: https://github.com/hakkane84/Decentralizer-GUI**
 
 ## Usage of the binaries:
 
-* 1 - Open Sia. Version 1.3.4 or above is required.
+* 1 - Open Sia. Version 1.4.0 or above is required for the full feature set.
 * 2 - Open a command line interface of your OS on the folder where you downloaded the binary.
+* *On Linux, you'll need to make the binary executable with `sudo chmod +x decentralizer`*
 
 Decentralizer commands:
 * `./decentralizer help`: Shows the list of all possible commands with explanations
@@ -41,17 +42,16 @@ These binaries were compiled using `pkg` (https://github.com/zeit/pkg)
 ## Usage of the non-compiled script
 
 * Install node.js
+* `npm install` to install all the dependencies
 * Use the same commands mentioned above, as for example `node decentralizer.js remove auto`
 
 
-## Dependencies of the non-compiled script
+## Compiling binaries
 
-In order to use the node.js script contained in this repository, the following NPM dependencies are required:
-
-* sia.js
-* babel-runtime
-* get-json
-* table
+* Install node.js
+* `npm install` to install all the dependencies
+* Install `pkg`: `npm install -g pkg`
+* Run `pkg ./` to create binaries for the 3 main OS
 
 ## Acknowledgements
 

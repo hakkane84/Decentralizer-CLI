@@ -1,57 +1,88 @@
-![logo](https://github.com/hakkane84/Decentralizer/blob/master/logo.png)
+![logo](https://github.com/hakkane84/Decentralizer/blob/master/full_logo.png)
 # Decentralizer
+
+Contracts micro-managing and unsafe hosts protection for Sia (CLI)
 
 Website: https://keops.cc/decentralizer
 
-Renter's tool for detecting and eliminating centralization in Sia contracts. "Vaccinates" against sybil attacks.
+A tool for Sia renters that allows:
 
-Ready-to-use binaries for Windows, MacOS and Linux can be downloaded here: https://github.com/hakkane84/Decentralizer/releases
+* a) Micro-managing and data visualization about the formed contracts.
+* b) Creating filters of hosts, according to geolocation, Sia version, pricing and/or manual selection.
+* c) Detection of hosting farms and unsafe hosts, allowing cancelling contracts with them and/or filter them out. "Farms" represent multiple hosts sharing geolocation, most pprobably being controlled by the same opeprator. Centralization of hosts is problematic, as it implicates that redundant copies of the files are being stored in the same location (what defeats the purpose of the redundancy). It also exposes the renter to malicious hosts performing a sybil attack by denying acccess to files after controling a large enough number of hosts.
 
-This command line tool identifies farms of Sia hosts by geolocation and allows the renter to cancel the contracts formed with these hosts. Centralization of hosts is problematic, as it implicates that redundant copies of the files are being stored in the same location by presumably the same operator (defeating the purpose of the redundancy). It also exposes the renter to malicious hosts performing a sybil attack by denying acccess to files after controling a large enough number of hosts. This is why it is so important to identify these singular entities and avoid renewing file contracts with them.
+Decentralizer connects to SiaStats.info and downloads a database of hosting farms. In addition to pure geolocation, SiaStats tracks hosts over time and employs additional algorithms, what allows discovering farms even if the farm operator changes the physical location of the hosts, uses VPNs or intentionally tries to block SiaStats at a network level. Thanks to the use of these databases from SiaStats, unsafe hosts (i.e., hosts that are known to be performing a Sybil attack or provoke damage or any kind), will be shown with an alert message, allowing the user to avoid them. You can learn more about it at https://siastats.info/hosting_farms. In case SiaStats is unavailable (for example during to a DDoS attack to its servers), a local copy of this database is used (`farms_definition.json`). This file can be updated manually: ask in the Sia official Discord in case you require an up-to-date database file.
 
-Once these singular entities ("farms") are identified by Decentralizer and presented to the user, the user can decide to cancel the contract with whichever host they decide, or to let Decentralizer remove all but one of the contracts formed with each farm. Contracts formed with hosts not belonging to farms can be also individually cancelled.
+Ready-to-use binaries for Windows, MacOS and Linux can be downloaded here: https://github.com/hakkane84/Decentralizer-GUI/releases
 
-Decentralizer connects to SiaStats.info and downloads a database of hosting farms. In addition to pure geolocation, SiaStats tracks hosts over time and employs additional algorithms, what allows discovering farms even if the farm operator changes the physical location of the hosts, uses VPNs or intentionally tries to block SiaStats at a network level. Overall, this additional database search reduces dramatically the chances of decoying a hosting farm operation. You can learn more about it at https://siastats.info/hosting_farms. In case SiaStats is unavailable (for example during to a DDoS attack to its servers), a local copy of this database is used (`farms_definition.json`). This file can be updated manually: ask in the Sia official Discord in case you require an up-to-date database file.
+**Users preferring a graphical interface can use instead Decentralizer-GUI, which brings the same features in an easy and intuitive to use app: https://github.com/hakkane84/Decentralizer-GUI**
 
-Thanks to the use of these databases from SiaStats, dangerous hosts (i.e., hosts that are known to be performing a Sybil attack or provoke damage or any kind), will be shown with an alert message, allowing the user to avoid them.
-
-For safety, hosts whose geolocation can't be assessed (very uncommon) are considered part of a farm.
+The databases of hosts, contracts and the user-built Filter can be easily re-used in a different machine (even if it is using Decentralizer-GUI) by copying the `databases` folder.
 
 ## Usage of the binaries:
 
-* 1 - Open Sia. Version 1.3.4 or above is required.
+* 1 - Open Sia. Version 1.4.0 or above is required for the full feature set (the Hosts Filter is only available in this version and onwards).
 * 2 - Open a command line interface of your OS on the folder where you downloaded the binary.
+* *On Linux, you'll need to make the binary executable with `sudo chmod +x decentralizer`*
 
-Decentralizer commands:
+![screenshot](https://github.com/hakkane84/Decentralizer/blob/master/screenshot.jpg)
+
+### General commands:
 * `./decentralizer help`: Shows the list of all possible commands with explanations
-* `./decentralizer scan`: Downloads databases from SiaStats and alanyzes hosts and contracts. After the analysis, a numbered list of the detected hosts belonging to farms will be shown. Dangerous hosts will be identified with a `[*]` and an alert message.
-* `./decentralizer show farms`: Shows again the list of farms
-* `./decentralizer show contracts`: Shows the full list of contracts, belonging or not to farms. The Contract-ID number allows to individually cancel them
+* `./decentralizer scan`: Downloads databases from SiaStats and alanyzes hosts and contracts. After the analysis, a numbered list of the detected hosts belonging to farms will be shown. Dangerous hosts will be identified with an alert message.
+
+### Contracts cancelling commands:
+* `./decentralizer view farms`: Shows the list of farms
+* `./decentralizer view contracts`: Shows the full list of contracts, belonging or not to farms. The Contract-ID number allows to individually cancel them
 * `./decentralizer remove auto`: Allows the app to automatically cancel contracts with centralized hosts. Only the contract with the host holding more of your data of each farm will be kept. 
 * `./decentralizer remove x` where `x` is the host number (or Contract-ID number) indicated on the previously generated farms and contract lists. This will cancel the contract only with the specified host.
 
-After canceling contracts, your Sia client will form replacement contracts with new hosts, as long as your wallet is unlocked. Some time after creating these new contracts (this can be accelerated by restarting Sia), Sia's file repair capabilities will upload the pieces of files to the new hosts. If file redundancy does not start recovering a few minutes after removing contracts then restart Sia. Keep in mind that the **file repair will incur Siacoin expenses**: new contracts will be formed, data will be uploaded to the replacement hosts and if you don't have the files locally anymore, the files will be downloaded first from the rest of available hosts (incurring download expenses).
+After canceling contracts, your Sia client will form replacement contracts with new hosts, as long as your wallet is unlocked. Sia will upload the pieces of files to the new hosts. If file redundancy does not start recovering a few minutes after removing contracts then restart Sia. Keep in mind that the **file repair will incur Siacoin expenses**: new contracts will be formed, data will be uploaded to the replacement hosts and if you don't have the files locally anymore, the files will be downloaded first from the rest of available hosts (incurring download expenses).
 
-Canceling contracts with more than 15-20 hosts in one single operation is not recommended unless you keep a local copy of all the files. Otherwise, cancel a few contracts, allow file repair to take the redundancy back to 3x and then cancel a second batch of contracts.
+### Hosts filter commands
 
-These binaries were compiled using `pkg` (https://github.com/zeit/pkg)
+* `./decentralizer view hosts countries`: Shows the list of country codes of hosts and the number of hosts per country
+* `./decentralizer view hosts versions`: Shows the list of version numbers hosts are using
+* `./decentralizer view hosts [country code]` Shows the list of hosts in the specified country
+* `./decentralizer view hosts orderby [storage/upload/download/collateral]`: Shows a list of all the hosts, ordered by the selected parameter
+* `./decentralizer filter`: Shows your Filter mode (blacklist, whitelist, disable) and the hosts included on it
+* `./decentralizer filter add [hostID / country code]`: Adds the desired HostID or all the hosts in a country to the Filter
+* `./decentralizer filter add version [version]`: Adds to the filter all the hosts using the selected Sia version (e.g. "1.4.0")
+* `./decentralizer filter remove [y]`: Removes the host with FilterID 'y' from the Filter (check the ID with 'filter show') 
+* `./decentralizer filter mode [disable/whitelist/blacklist]`: Changes the mode of the Filter that will be applied to the list of hosts. In a whitelist, only the selected hosts will be candidates in Sia to form contracts with. In blacklist, the hosts in the Filter will be excluded by Sia.
+* `./decentralizer filter clear`: Removes all the hosts from the Filter, and sets its mode to 'disable'")
+* `./decentralizer filter farms`: On whitelist, removes the hosts in farms from the Filter. On blacklist, adds them to the Filter. One of the hosts of each farm will be kept aside, in both cases, ensuring the farm can still be used, but no more than one contract will be formed with it.
+* `./decentralizer filter apply`: Applies the Filter of hosts and the Filter mode (whitelist/blacklist/disable) to Sia")
 
-![screenshot](https://github.com/hakkane84/Decentralizer/blob/master/screenshot.jpg)
+For safety reasons, hosts flagged as unsafe by SiaStats can't be included on a whitelist, and will be automatically added on the blacklist mode.
 
 ## Usage of the non-compiled script
 
 * Install node.js
+* `npm install` to install all the dependencies
 * Use the same commands mentioned above, as for example `node decentralizer.js remove auto`
 
 
-## Dependencies of the non-compiled script
+## Compiling binaries
 
-In order to use the node.js script contained in this repository, the following NPM dependencies are required:
+* Install node.js
+* `npm install` to install all the dependencies
+* Install `pkg`: `npm install -g pkg`
+* Run `pkg ./` to create binaries for the 3 main OS
 
-* sia.js
-* babel-runtime
-* get-json
-* table
+## Changes log
+### v1.0.0
+* Full rewrite of the code logic: now geolocation of all the hosts is primarly obtained from SiaStats and additional inquires to geolocation databases is performed locally in absence of data from SiaStats.
+* All contracts can be now individually cancelled (not just farms).
+* Decentralizer now allows to create and apply a hosts filter to Sia. Build a filter by adding hosts manually, according to their country, Sia version or pricing.
+* New databases structure allows easy inter-operability between multiple machines (even those using the GUI version) just by moving the `databases` folder.
+
+### v0.2.0
+* Decentralizer connects to SiaStats to obtain additional farms information.
+* Unsafe hosts hosts detected and alerted thanks to SiaStats databases.
+
+### v0.1.0
+* Initial release.
 
 ## Acknowledgements
 
@@ -60,7 +91,4 @@ I want to thank [tbenz9](https://github.com/tbenz9) for his code contributions
 ## Donations
 
 Siacoin: `bde3467039a6d9a563224330ff7578a027205f1f2738e1e0daf134d8ded1878cf5870c41927d`
-
-
-
 

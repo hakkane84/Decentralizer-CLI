@@ -1,12 +1,19 @@
 {
-  "name": "decentralizer",
-  "version": "0.3.0",
-  "description": "Renter's tool for detecting and eliminating centralization in Sia contracts. \"Vaccinates\" against sybil attacks",
+  "name": "decentralizer-cli",
+  "description": "Contracts micro-managing and unsafe hosts protection for Sia (CLI version)",
+  "version": "1.0.0",
+  "license": "GPL-3.0",
+  "email": "keops_cc@outlook.com",
+  "homepage": "http://keops.cc/decentralizer",
+  "repository": {
+      "type": "git",
+      "url": "https://github.com/hakkane84/Decentralizer-CLI"
+  },
+  "author": "Salva Herrera",
   "main": "decentralizer.js",
-  "author": "Hakkane",
-  "license": "GNU GPLv3",
   "bin": "decentralizer.js",
   "dependencies": {
+    "axios": "^0.18.0",
     "babel-runtime": "^6.26.0",
     "get-json": "^1.0.1",
     "sia.js": "^0.4.2",

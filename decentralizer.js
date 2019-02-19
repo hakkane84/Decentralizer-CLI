@@ -1,13 +1,15 @@
-// DECENTRALIZER 0.3.0
+// DECENTRALIZER 1.0.0
 // Copyright 2018, 2019 by Salvador Herrera <keops_cc@outlook.com>
+// Licensed under GPLv3
 
 
 var fs = require('fs');
 var sia = require('sia.js');
 var http = require('request');
-var getJSON = require('get-json')
+var axios = require('axios');
 var table = require('table')
 var Path = require('path')
+var os = require('os')
 
 // Passing arguments
 var argument1 = process.argv[2]
@@ -16,7 +18,7 @@ var argument3 = process.argv[4]
 var argument4 = process.argv[5]
 
 console.log()
-console.log('\x1b[44m%s\x1b[0m', "*** KEOPS DECENTRALIZER v0.3.0 ***")
+console.log('\x1b[44m%s\x1b[0m', "*** KEOPS DECENTRALIZER v1.0.0 ***")
 console.log()
 
 
@@ -56,8 +58,32 @@ if (argument1 == "scan") {
     viewFarms()
 } else if (argument1 == "view" && argument2 == "contracts") {
     viewContracts()
+} else if (argument1 == "view" && argument2 == "hosts" && argument3 == "countries") {
+    viewCountries()
+} else if (argument1 == "view" && argument2 == "hosts" && argument3 == "versions") {
+    viewVersions()
+} else if (argument1 == "view" && argument2 == "hosts" && argument3 != "countries" && argument3 != "orderby" && argument3 != null) {
+    viewHostsCountry(argument3)
+} else if (argument1 == "view" && argument2 == "hosts" && (argument3 == null || argument3 == "orderby")) {
+    viewHostsAll(argument3, argument4)
 } else if (argument1 == "help") {
     help()
+} else if (argument1 == "filter" && argument2 == null) {
+    showList()
+} else if (argument1 == "filter" && argument2 == "add" && argument3 != null && argument3 != "version") {
+    addList(argument3)
+} else if (argument1 == "filter" && argument2 == "add" && argument3 == "version" && argument4 != null) {
+    addVersion(argument4)
+} else if (argument1 == "filter" && argument2 == "remove") {
+    removeList(argument3)
+} else if (argument1 == "filter" && argument2 == "mode" && (argument3 == "disable" || argument3 == "whitelist" || argument3 == "blacklist")) {
+    modeList(argument3)
+} else if (argument1 == "filter" && argument2 == "farms") {
+    filterFarms()
+} else if (argument1 == "filter" && argument2 == "clear") {
+    clearList()
+} else if (argument1 == "filter" && argument2 == "apply") {
+    applyList()
 } else {
     console.log("Invalid syntax")
     help()
@@ -65,25 +91,39 @@ if (argument1 == "scan") {
 
 function help() {
     console.log("   * decentralizer scan --> Analyzes contracts and shows hosts belonging to hosting farms")
-    console.log("   * decentralizer remove x --> Removes the host numbered 'x' (refer to the 'decentralizer scan') from your contracts")
+    console.log("   * decentralizer remove [x] --> Removes the host numbered 'x' (refer to the 'decentralizer scan') from your contracts")
     console.log("   * decentralizer remove auto --> Removes all but one of the duplicate hosts in a hosting farm")
     console.log("   * decentralizer view farms --> Shows the list of farms obtained on the last scan")
     console.log("   * decentralizer view contracts --> Shows the full list of contracts, obtained on the last scan")
-    console.log("   * decentralizer help --> Shows all possible commands")
+    console.log("   * decentralizer view hosts --> Shows all hosts, ordered by rank")
+    console.log("   * decentralizer view hosts countries --> Shows the list of country codes of hosts")
+    console.log("   * decentralizer view hosts versions --> Shows the list of version numbers of hosts")
+    console.log("   * decentralizer view hosts [country code] --> Shows the hosts in the specified country")
+    console.log("   * decentralizer view hosts orderby [storage/upload/download/collateral] --> Shows all hosts, ordered by the indicated parameter")
+    console.log("   * decentralizer filter --> Shows your Filter mode (blacklist, whitelist) and the hosts included on it")
+    console.log("   * decentralizer filter add [hostID / country code] --> Adds the desired HostID or all the hosts in a country to the Filter")
+    console.log("   * decentralizer filter add version [version] --> Adds to the filter all the hosts using the selected Sia version (e.g. 1.4.0)")
+    console.log("   * decentralizer filter remove [y] --> Removes the host with FilterID 'y' (check it with 'filter show') from the Filter")
+    console.log("   * decentralizer filter mode [disable/whitelist/blacklist] --> Changes the mode of the Filter that will be applied to the list of hosts")
+    console.log("   * decentralizer filter clear --> Removes all the hosts from the Filter, and sets its mode to 'disable'")
+    console.log("   * decentralizer filter farms --> On whitelist, removes hosts in farms from the Filter. On blacklist, adds them to the Filter")
+    console.log("   * decentralizer filter apply --> Applies the Filter of hosts and the Filter mode (white/blacklist/disable) to Sia")
+    console.log("   * decentralizer help --> Shows again all the possible commands")
     console.log()
 }
 
 
 function siastatsGeolocFile() {
     // SiaStats JSON geolocation. If the file can't be downloaded, the local copy is used instead
-    getJSON('https://siastats.info/dbs/decentralizer_hosts_geoloc.json').then(function(siastatsGeoloc) {
+    axios.get('https://siastats.info/dbs/decentralizer_hosts_geoloc.json').then(response => {
+        var siastatsGeoloc = response.data
         console.log("Downloaded " + siastatsGeoloc.length + " hosts geolocation from SiaStats.info");
 
         // Saving the file
         fs.writeFileSync('databases/hosts_geoloc.json', JSON.stringify(siastatsGeoloc))
 
         siastatsFarmsFile(siastatsGeoloc)
-    }).catch(function(error) {
+    }).catch(error => {
         
         fs.readFile('databases/hosts_geoloc.json', 'utf8', function (err, data) { if (!err) { 
             siastatsGeoloc = JSON.parse(data);
@@ -98,14 +138,15 @@ function siastatsGeolocFile() {
 
 function siastatsFarmsFile(siastatsGeoloc) {
     // SiaStats JSON geolocation. If the file can't be downloaded, the local copy is used instead
-    getJSON('http://siastats.info/dbs/farms_api.json').then(function(siastatsFarms) {
+    axios.get('https://siastats.info/dbs/farms_api.json').then(response => {
+        var siastatsFarms = response.data
         console.log("Downloaded data from " + siastatsFarms.length + " farms from SiaStats.info");
 
         // Saving the file
         fs.writeFileSync('databases/farms_definition.json', JSON.stringify(siastatsFarms))
 
         siaHosts(siastatsGeoloc, siastatsFarms)
-    }).catch(function(error) {
+    }).catch(error => {
         
         fs.readFile('databases/farms_definition.json', 'utf8', function (err, data) { if (!err) { 
             siastatsFarms = JSON.parse(data);
@@ -122,10 +163,18 @@ function siaHosts(siastatsGeoloc, siastatsFarms) {
     // Requesting active hosts with an API call:
     console.log("Retreiving your hosts list from Sia")
     sia.connect('localhost:9980')
-    .then((siad) => {siad.call('/hostdb/active')
+    .then((siad) => {siad.call('/hostdb/all')
         .then((hosts) => {
-            var hostdb = hosts.hosts
-            hostsProcessing(siastatsGeoloc, siastatsFarms, hostdb)
+            var allHosts = hosts.hosts
+            // Filtering only the active and accepting contracts. If I was using the /hostdb/active, it would show less hosts after applying a filter
+            var active = []
+            for (var i = 0; i < allHosts.length; i++) {
+                if (allHosts[i].scanhistory[allHosts[i].scanhistory.length-1].success == true
+                    && allHosts[i].acceptingcontracts == true) {
+                    active.push(allHosts[i])
+                }
+            }
+            hostsProcessing(siastatsGeoloc, siastatsFarms, active)
         })
         .catch((err) => {
             console.log("Error retrieving data from Sia. Is Sia working, synced and connected to internet? Try this script again after restarting Sia.")
@@ -181,7 +230,8 @@ function requestIP(siastatsFarms, hostdb, hostsToGeoloc, i, siastatsGeoloc) {
         
     // Requesting the geolocation of the host
     var ipquery = "http://ip-api.com/json/" + trimedip
-    getJSON(ipquery).then(function(ipAPI) {
+    axios.get(ipquery).then(response => {
+        var ipAPI = response.data
         var lat = parseFloat(ipAPI.lat)
         var lon = parseFloat(ipAPI.lon)
         process.stdout.clearLine();  // clear current text
@@ -195,7 +245,7 @@ function requestIP(siastatsFarms, hostdb, hostsToGeoloc, i, siastatsGeoloc) {
         hostdb[hostsToGeoloc[i]].countryCode = ipAPI.countryCode // Also adding the ISP
         nextIP(siastatsFarms, hostdb, hostsToGeoloc, i, siastatsGeoloc)
 
-    }).catch(function(error) {
+    }).catch(error => {
         // On failed IP request, move to the next IP
         console.log(hostip + " - Failed")
         nextIP(siastatsFarms, hostdb, hostsToGeoloc, i, siastatsGeoloc)
@@ -223,9 +273,9 @@ function compareOldDb(hostdb, siastatsFarms, siastatsGeoloc) {
         for (var i = 0; i < hostdb.length; i++) {
             for (var j = 0; j < oldHosts.length; j++) {
                 if (hostdb[i].publickey.key == oldHosts[j].publickey.key) { // Match of hosts
-                    if (oldHosts[j].onlist == true) {
+                    if (oldHosts[j].onList == true) {
                         // Add the boolean to the new hostdb
-                        hostdb[i].onlist = true
+                        hostdb[i].onList = true
                     }
                 }
             }
@@ -330,7 +380,9 @@ function requestContractIP(siastatsFarms, contracts, contractsToGeoloc, i) {
         
     // Requesting the geolocation of the host
     var ipquery = "http://ip-api.com/json/" + trimedip
-    getJSON(ipquery).then(function(ipAPI) {
+    axios.get(ipquery).then(response => {
+        var ipAPI = response.data
+
         var lat = parseFloat(ipAPI.lat)
         var lon = parseFloat(ipAPI.lon)
         process.stdout.clearLine();  // clear current text
@@ -344,7 +396,7 @@ function requestContractIP(siastatsFarms, contracts, contractsToGeoloc, i) {
         contracts[contractsToGeoloc[i]].countryCode = ipAPI.countryCode // Also adding the ISP
         nextContractIP(siastatsFarms, contracts, contractsToGeoloc, i)
 
-    }).catch(function(error) {
+    }).catch(error => {
         // On failed IP request, move to the next IP
         console.log(hostip + " - Failed")
         nextContractIP(siastatsFarms, contracts, contractsToGeoloc, i)
@@ -876,4 +928,1085 @@ function viewContracts() {
         console.log()
     }});
 }
+
+
+function viewCountries() {
+    // Displays a list of countries with hosts
+
+    // Open file
+    fs.readFile('databases/hosts.json', 'utf8', function (err, data) { if (!err) { 
+        hosts = JSON.parse(data);
+
+        // Initializing, with European Union empty
+        var countries = [ 
+            {
+                countryName: "European Union",
+                countryCode: "EU",
+                hosts: 0
+            }
+        ]
+
+        // Iterating hosts
+        for (var i = 0; i < hosts.length; i++) {
+            var countryMatch = false
+            for (var j = 0; j < countries.length; j++) {
+                if (hosts[i].countryCode == countries[j].countryCode) {
+                    countryMatch = true
+                    countries[j].hosts++
+                }
+            }
+            if (countryMatch == false) {
+                // Create new entry on array
+                countries.push({
+                    countryName: hosts[i].countryName,
+                    countryCode: hosts[i].countryCode,
+                    hosts: 1
+                })
+            }
+            // Adding to the EU
+            var c = hosts[i].countryCode
+            if (c == "BE" || c == "BG" || c == "CZ" || c == "DK" || c == "DE" || c == "EE" || c == "IE" || c == "EL" || c == "ES" || c == "FR" ||
+                c == "HR" || c == "IT" || c == "CY" || c == "LV" || c == "LT" || c == "LU" || c == "HU" || c == "MT" || c == "NL" || c == "AT" ||
+                c == "PL" || c == "PT" || c == "RO" || c == "SI" || c == "SK" || c == "FI" || c == "SE" || c == "GB" || c == "LI" || c == "IS" ||
+                c == "NO") {
+                    countries[0].hosts++
+            }
+        }
+
+        // Sorting by number of hosts
+        function compare(a,b) {
+            if (a.hosts < b.hosts)
+                return 1;
+            if (a.hosts > b.hosts)
+                return -1;
+            return 0;
+        }
+        countries.sort(compare);
+
+        // Displaying table
+        data = [["Country name", "Country code", "Number of hosts"]]
+        for (var i = 0; i < countries.length; i++) {
+            // Correcting data of not geolocated hosts
+            if (countries[i].countryName == null) {
+                countries[i].countryName = "UNKNOWN"
+                countries[i].countryCode = "XX"
+            }
+
+            // Adding to table
+            data.push([
+                countries[i].countryName,
+                countries[i].countryCode,
+                countries[i].hosts
+            ])
+        }
+        output = table.table(data);
+        console.log(output);
+
+    } else {
+        console.log('ERROR - The hosts file could not be fetched. Run the "decentralizer scan" command first')
+        console.log()
+    }});
+
+}
+
+
+function viewHostsCountry(country) {
+    // Displays hosts in a country
+
+    // Make country uppercase
+    var country = country.toUpperCase();
+
+    // Make "XX" a null (unknown geolocation)
+    if (country == "XX") {country = null}
+
+    // Open file
+    fs.readFile('databases/hosts.json', 'utf8', function (err, data) { if (!err) { 
+        hosts = JSON.parse(data);
+
+        // Table header
+        data = [["Country code", "Host #", "Host IP", "Storage price per TB/mo", "Upload per TB", "Download per TB", "Collateral ratio", "Rank", "On Filter"]]
+
+        // Iterating the list of hosts
+        for (var i = 0; i < hosts.length; i++) {
+            var addHost = false
+            if (country == "EU") {
+                // European Union
+                var c = hosts[i].countryCode 
+                if (c == "BE" || c == "BG" || c == "CZ" || c == "DK" || c == "DE" || c == "EE" || c == "IE" || c == "EL" || c == "ES" || c == "FR" ||
+                    c == "HR" || c == "IT" || c == "CY" || c == "LV" || c == "LT" || c == "LU" || c == "HU" || c == "MT" || c == "NL" || c == "AT" ||
+                    c == "PL" || c == "PT" || c == "RO" || c == "SI" || c == "SK" || c == "FI" || c == "SE" || c == "GB" || c == "LI" || c == "IS" ||
+                    c == "NO") {
+                        addHost = true
+                    }
+            } else {
+                if (hosts[i].countryCode == country) {
+                    addHost = true
+                }
+            }
+            // Adding host
+            if (addHost == true) {
+                
+
+                var upload = parseInt(hosts[i].uploadbandwidthprice/1000000000000) + " SC"
+                var download = parseInt(hosts[i].downloadbandwidthprice/1000000000000) + " SC"
+                var collateralRatio = (hosts[i].collateral / hosts[i].storageprice).toFixed(1) + "x"
+                // This obtuse algorithm converts the storage price from the hostdb to something human-legible. Obtained by test and error
+                var storage = parseInt(hosts[i].storageprice * 400 / 92592592592) + " SC"
+                var rank = hosts.length - i
+                // On list
+                if (hosts[i].onList == true) {
+                    var onList = "*"
+                } else {
+                    var onList = ""
+                }
+                data.push([
+                    hosts[i].countryCode,
+                    i,
+                    hosts[i].netaddress,
+                    storage,
+                    upload,
+                    download,
+                    collateralRatio,
+                    rank,
+                    onList
+                ])
+            }
+        }
+        config = {
+            columns: {
+                0: {
+                    width: 7,
+                    wrapWord: true
+                },
+                3: {
+                    width: 7,
+                    wrapWord: true
+                },
+                4: {
+                    width: 6,
+                    wrapWord: true
+                },
+                5: {
+                    width: 8,
+                    wrapWord: true
+                },
+                6: {
+                    width: 10,
+                    wrapWord: true
+                },
+                8: {
+                    width: 6,
+                    wrapWord: true
+                }
+            }
+        };
+
+        // Render table
+        if (data.length > 1) {
+            output = table.table(data, config);
+            console.log(output);
+            console.log("Add hosts to your Filter by using the 'Host #' code in the second column")
+            console.log("Example: 'decentralizer filter add 23'")
+            console.log()
+        } else {
+            console.log('No hosts in the selected country code')
+            console.log('(try codes as US, GB or EU, get the full list with "decentralizer view hosts countries")')
+            console.log()
+        }
+
+    } else {
+        console.log('ERROR - The hosts file could not be fetched. Run the "decentralizer scan" command first')
+        console.log()
+    }});
+}
+
+
+function viewHostsAll(argument3, orderby) {
+    if (argument3 == null || (argument3 == "orderby" && (orderby == "storage" || orderby == "upload" || orderby == "download" || orderby == "collateral"))) {
+        
+        // Open file
+        fs.readFile('databases/hosts.json', 'utf8', function (err, data) { if (!err) { 
+            hosts = JSON.parse(data);
+            
+            // Filling the table
+            var hostsTable = []
+            for (var i = 0; i < hosts.length; i++) {
+                var countryCode = hosts[i].countryCode
+                if (countryCode == null) {countryCode = "XX"}
+                var upload = parseInt(hosts[i].uploadbandwidthprice/1000000000000)
+                var download = parseInt(hosts[i].downloadbandwidthprice/1000000000000)
+                var collateralRatio = parseFloat((hosts[i].collateral / hosts[i].storageprice).toFixed(1))
+                // This obtuse algorithm converts the storage price from the hostdb to something human-legible. Obtained by test and error
+                var storage = parseInt(hosts[i].storageprice * 400 / 92592592592)
+                var rank = hosts.length - i
+                // On list
+                if (hosts[i].onList == true) {
+                    var onList = "*"
+                } else {
+                    var onList = ""
+                }
+                hostsTable.push([
+                    countryCode,
+                    i,
+                    hosts[i].netaddress,
+                    storage,
+                    upload,
+                    download,
+                    collateralRatio,
+                    rank,
+                    onList
+                ])
+            }
+
+            // Ordering table
+            if (argument3 != null && orderby == "collateral") {
+                function orderTableCollateral(a,b) {
+                    if (a[6] < b[6])
+                        return 1;
+                    if (a[6] > b[6])
+                        return -1;
+                    return 0;
+                }
+                hostsTable.sort(orderTableCollateral);
+            } else if (argument3 != null && orderby == "storage") {
+                function orderTableStorage(a,b) {
+                    if (a[3] < b[3])
+                        return 1;
+                    if (a[3] > b[3])
+                        return -1;
+                    return 0;
+                }
+                hostsTable.sort(orderTableStorage);
+            } else if (argument3 != null && orderby == "upload") {
+                function orderTableUpload(a,b) {
+                    if (a[4] < b[4])
+                        return 1;
+                    if (a[4] > b[4])
+                        return -1;
+                    return 0;
+                }
+                hostsTable.sort(orderTableUpload);
+            } else if (argument4 != null && orderby == "download") {
+                function orderTableDownload(a,b) {
+                    if (a[5] < b[5])
+                        return 1;
+                    if (a[5] > b[5])
+                        return -1;
+                    return 0;
+                }
+                hostsTable.sort(orderTableDownload);
+            }
+
+            // Adding units to the table values
+            for (var i = 0; i < hostsTable.length; i++) {
+                hostsTable[i][3] = hostsTable[i][3] + " SC"
+                hostsTable[i][4] = hostsTable[i][4] + " SC"
+                hostsTable[i][5] = hostsTable[i][5] + " SC"
+                if (hostsTable[i][6] != "Infinity") {
+                    hostsTable[i][6] = hostsTable[i][6] + "x"
+                }
+            }
+            
+            // Concatenating the header
+            header = [["Country code", "Host #", "Host IP", "Storage price per TB/mo", "Upload per TB", "Download per TB", "Collateral ratio", "Rank", "On Filter"]]
+            var data = header.concat(hostsTable);
+
+            // Render table
+            config = {
+                columns: {
+                    0: {
+                        width: 7,
+                        wrapWord: true
+                    },
+                    3: {
+                        width: 7,
+                        wrapWord: true
+                    },
+                    4: {
+                        width: 6,
+                        wrapWord: true
+                    },
+                    5: {
+                        width: 8,
+                        wrapWord: true
+                    },
+                    6: {
+                        width: 10,
+                        wrapWord: true
+                    },
+                    8: {
+                        width: 6,
+                        wrapWord: true
+                    }
+                }
+            };
+            output = table.table(data, config);
+            console.log(output);
+            console.log("Add hosts to your Filter by using the 'Host #' code in the second column")
+            console.log("Example: 'decentralizer filter add 23'")
+            console.log()
+        }})
+        
+    } else {
+        // Wrong syntax
+        console.log("Invalid syntax")
+        help()
+    }
+}
+
+
+
+//////////////////////
+// FILTER ENDPOINTS
+
+function showList() {
+    // Displays filter mode and hosts in the filter
+    
+    // Open files
+    fs.readFile('databases/hosts.json', 'utf8', function (err, data) { if (!err) { 
+        hosts = JSON.parse(data)
+        
+        fs.readFile('databases/settings.json', 'utf8', function (err, data) { if (!err) { 
+            settings = JSON.parse(data)
+
+            // Hosts
+            // Table header
+            data = [["Country code", "Filter-ID#", "Host IP", "Storage price per TB/mo", "Upload per TB", "Download per TB", "Collateral ratio", "Rank"]]
+            var listNumber = 0 // For deducing the Filter-ID
+            // Iterating the list of hosts
+            for (var i = 0; i < hosts.length; i++) {
+                if (hosts[i].onList == true) {
+                    listNumber++
+                    var listID = "F" + listNumber
+                    var upload = parseInt(hosts[i].uploadbandwidthprice/1000000000000) + " SC"
+                    var download = parseInt(hosts[i].downloadbandwidthprice/1000000000000) + " SC"
+                    var collateralRatio = (hosts[i].collateral / hosts[i].storageprice).toFixed(1) + "x"
+                    // This obtuse algorithm converts the storage price from the hostdb to something human-legible. Obtained by test and error
+                    var storage = parseInt(hosts[i].storageprice * 400 / 92592592592) + " SC"
+                    var rank = hosts.length - i
+                    data.push([
+                        hosts[i].countryCode,
+                        listID,
+                        hosts[i].netaddress,
+                        storage,
+                        upload,
+                        download,
+                        collateralRatio,
+                        rank,
+                    ])
+                }
+            }
+            config = {
+                columns: {
+                    0: {
+                        width: 7,
+                        wrapWord: true
+                    },
+                    3: {
+                        width: 7,
+                        wrapWord: true
+                    },
+                    4: {
+                        width: 6,
+                        wrapWord: true
+                    },
+                    5: {
+                        width: 8,
+                        wrapWord: true
+                    },
+                    6: {
+                        width: 10,
+                        wrapWord: true
+                    },
+                }
+            };
+
+            // Render table
+            if (data.length > 1) {
+                output = table.table(data, config);
+                console.log(output);
+                console.log()
+            } else {
+                console.log('No hosts currently on the filter')
+                console.log('Add them with the "filter add [host#]" or "filter add [country code]" commands')
+                console.log()
+            }
+
+            // Displaying the list mode
+            data = [["Filter Mode:", settings.listMode]]
+            output = table.table(data);
+            console.log(output);
+            console.log("To apply this Filter to Sia, use the command: 'decentralizer filter apply'")
+            console.log()
+
+        } else {
+            console.log('ERROR - The settings file could not be fetched. Run the "decentralizer scan" command first')
+            console.log()
+        }});
+    } else {
+        console.log('ERROR - The hosts file could not be fetched. Run the "decentralizer scan" command first')
+        console.log()
+    }});
+}
+
+
+function addList(hostID) {
+    // Adds a host to the List. It is just adding onlist = true
+    
+    // Open file
+    fs.readFile('databases/hosts.json', 'utf8', function (err, data) { if (!err) { 
+        hosts = JSON.parse(data)
+        fs.readFile('databases/farms_definition.json', 'utf8', function (err, data) { if (!err) { 
+            farms = JSON.parse(data);
+            fs.readFile('databases/settings.json', 'utf8', function (err, data) { if (!err) { 
+                settings = JSON.parse(data);
+        
+                // Sanity check of the hostID
+                if (hostID >= 0 && hostID < hosts.length) {
+
+                    // Safety checks on the host, before adding it
+                    if (settings.listMode == "disable" || settings.listMode == "blacklist") {
+                        var alert = false
+                    } else if (settings.listMode == "whitelist") {
+                        // We don't want to add an alerted host to a whitelist
+                        var alert = checkAlertOnHost(hosts[hostID].publickeystring, hosts[hostID].netaddress, farms) // Checking for alerts
+                    }
+                    if (alert == false) {
+                        addingHosts++
+                        hosts[hostID].onList = true
+                        // Save file
+                        fs.writeFileSync('databases/hosts.json', JSON.stringify(hosts))
+                        console.log("The host " + hosts[hostID].netaddress + " has been added to the Filter")
+                        console.log()
+                    } else {
+                        // The function checkAlertOnHost already shows an error message
+                        console.log()
+                    }
+                    
+                } else {
+                    // Adding a country. First a sanity check
+                    if (hostID.length == 2) {
+                        var country = hostID.toUpperCase()
+
+                        // Transform "XX" into null for not geolocated hosts
+                        if (country == "XX") {country = null}
+
+                        // Iterating hosts
+                        var addingHosts = 0
+                        for (var i = 0; i < hosts.length; i++) {
+                            if (country == "EU") {
+                                var c = hosts[i].countryCode
+                                if (c == "BE" || c == "BG" || c == "CZ" || c == "DK" || c == "DE" || c == "EE" || c == "IE" || c == "EL" || c == "ES" || c == "FR" ||
+                                    c == "HR" || c == "IT" || c == "CY" || c == "LV" || c == "LT" || c == "LU" || c == "HU" || c == "MT" || c == "NL" || c == "AT" ||
+                                    c == "PL" || c == "PT" || c == "RO" || c == "SI" || c == "SK" || c == "FI" || c == "SE" || c == "GB" || c == "LI" || c == "IS" ||
+                                    c == "NO") {
+                                        // Safety checks on the host, before adding it
+                                        if (settings.listMode == "disable" || settings.listMode == "blacklist") {
+                                            var alert = false
+                                        } else if (settings.listMode == "whitelist") {
+                                            // We don't want to add an alerted host to a whitelist
+                                            var alert = checkAlertOnHost(hosts[i].publickeystring, hosts[i].netaddress, farms) // Checking for alerts
+                                        }
+                                        if (alert == false) {
+                                            addingHosts++
+                                            hosts[i].onList = true
+                                        }
+                                }
+
+                            } else {
+                                if (hosts[i].countryCode == country) {
+                                    // Safety checks on the host, before adding it
+                                    if (settings.listMode == "disable" || settings.listMode == "blacklist") {
+                                        var alert = false
+                                    } else if (settings.listMode == "whitelist") {
+                                        // We don't want to add an alerted host to a whitelist
+                                        var alert = checkAlertOnHost(hosts[i].publickeystring, hosts[i].netaddress, farms) // Checking for alerts
+                                    }
+                                    if (alert == false) {
+                                        addingHosts++
+                                        hosts[i].onList = true
+                                    }
+                                }
+                            }
+                        }
+
+                        // Saving
+                        fs.writeFileSync('databases/hosts.json', JSON.stringify(hosts))
+                        console.log(addingHosts + " hosts in " + country +" have been added to the Filter")
+                        console.log()
+
+                    } else {
+                        console.log("Wrong syntax: use a valid hostID number or a country code")
+                        help()
+                    }
+                }
+
+            } else {
+                console.log('ERROR - The settings file could not be fetched. Run the "decentralizer scan" command first')
+                console.log()
+            }});
+        } else {
+            console.log('ERROR - The farms definition file could not be fetched. Run the "decentralizer scan" command first')
+            console.log()
+        }});
+    } else {
+        console.log('ERROR - The hosts file could not be fetched. Run the "decentralizer scan" command first')
+        console.log()
+    }});
+}
+
+
+function removeList(listID) {
+    // Removes a host from the List
+    var listNumber = listID.slice(1)
+    
+    // Open file
+    fs.readFile('databases/hosts.json', 'utf8', function (err, data) { if (!err) { 
+        hosts = JSON.parse(data)
+        
+        // Sanity check of the listID
+        if (listID.slice(0,1) == "F" && listNumber > 0) {
+            var listScannedCount = 1
+            var hostFound = false
+            for (var i = 0; i < hosts.length; i++) {
+                if (hosts[i].onList == true) {
+                    // If it is the listNumber, change it, otherwise increase the count
+                    if (listScannedCount == listNumber) {
+                        hostFound = true
+                        hosts[i].onList = false
+                        console.log("The host " + hosts[i].netaddress + " has been removed from the Filter")
+                        console.log("If you want to remove additional hosts, run 'list show' again, as Filter-IDs might have changed")
+                    }
+                    listScannedCount++
+                }
+            }
+            if (hostFound == false) {
+                console.log("ERROR: There is no host in the Filter with the " + listID + " Filter-ID")
+                console.log("Check the correct Filter-IDs with the command 'filter show'")
+            }
+
+            // Save file
+            fs.writeFileSync('databases/hosts.json', JSON.stringify(hosts))
+            console.log()
+        } else {
+            console.log("Wrong Filter-ID. Check the Filter-IDs with the command 'filter show'")
+            help()
+        }
+
+    
+    } else {
+        console.log('ERROR - The hosts file could not be fetched. Run the "decentralizer scan" command first')
+        console.log()
+    }});
+}
+
+
+function clearList() {
+    // Removes all the hosts and sets the list mode to "disable"
+
+    // Open files
+    fs.readFile('databases/hosts.json', 'utf8', function (err, data) { if (!err) { 
+        hosts = JSON.parse(data)
+
+        fs.readFile('databases/settings.json', 'utf8', function (err, data) { if (!err) { 
+            settings = JSON.parse(data)
+
+            // Iterating hosts
+            for (var i = 0; i < hosts.length; i++) {
+                hosts[i].onList = false
+            }
+
+            // Changing the mode of the list
+            settings.listMode = "disable"
+
+            // Saving files
+            fs.writeFileSync('databases/hosts.json', JSON.stringify(hosts))
+            fs.writeFileSync('databases/settings.json', JSON.stringify(settings))
+            console.log("Filter of hosts cleared and set in 'disable' mode")
+            console.log()
+        
+        } else {
+            console.log('ERROR - The settings file could not be fetched. Run the "decentralizer scan" command first')
+            console.log()
+        }});
+    } else {
+        console.log('ERROR - The hosts file could not be fetched. Run the "decentralizer scan" command first')
+        console.log()
+    }});
+}
+
+
+function modeList(newMode) {
+    // Changes the mode of the list (white/black-listing)
+    
+    // Checking the list in order to add/remove alerted hosts
+    fs.readFile('databases/hosts.json', 'utf8', function (err, data) { if (!err) { 
+        hosts = JSON.parse(data)
+        fs.readFile('databases/farms_definition.json', 'utf8', function (err, data) { if (!err) { 
+            farms = JSON.parse(data)
+
+            // Adding alerts
+            for (var i = 0; i < hosts.length; i++) { // Each host
+                for (var j = 0; j < farms.length; j++) { // Each farm
+                    if (farms[j].alert == true) {
+                        for (var k = 0; k < farms[j].hosts.length; k++) { // Each host in a farm
+                            if (farms[j].hosts[k].pubkey == hosts[i].publickey.key) {
+                                hosts[i].alert = true
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Correcting the list with the alerts
+            var correctedHosts = 0
+            for (var i = 0; i < hosts.length; i++) {
+                if (newMode == "blacklist") {
+                    if (hosts[i].onList != true && hosts[i].alert == true) {
+                        hosts[i].onList = true
+                        correctedHosts++
+                    }
+                } else if (newMode == "whitelist") {
+                    if (hosts[i].onList == true && hosts[i].alert == true) {
+                        hosts[i].onList = false
+                        correctedHosts++
+
+                    }
+                }
+            }
+
+            if (newMode == "blacklist" && correctedHosts > 0) {
+                console.log(correctedHosts + " dangerous hosts have been added automatically to the blacklist for safety")
+            } else if (newMode == "whitelist" && correctedHosts > 0) {
+                console.log(correctedHosts + " dangerous hosts have been removed automatically from the withelist for safety")
+            }
+
+            // Saving the corrected hosts file
+            fs.writeFileSync('databases/hosts.json', JSON.stringify(hosts))
+
+            // Updating the list mode
+            fs.readFile('databases/settings.json', 'utf8', function (err, data) { if (!err) { 
+                settings = JSON.parse(data)
+                settings.listMode = newMode
+                fs.writeFileSync('databases/settings.json', JSON.stringify(settings))
+                console.log("Filter mode updated to: " + newMode)
+                console.log()
+            } else {
+                console.log('ERROR - The settings file could not be fetched. Run the "decentralizer scan" command first')
+                console.log()
+            }});
+
+        } else {
+            console.log('ERROR - The farms definition file could not be fetched. Run the "decentralizer scan" command first')
+            console.log()
+        }})
+    } else {
+        console.log('ERROR - The hosts file could not be fetched. Run the "decentralizer scan" command first')
+        console.log()
+    }})
+
+}
+
+
+
+function applyList() {
+
+    fs.readFile('databases/hosts.json', 'utf8', function (err, data) { if (!err) { 
+        hosts = JSON.parse(data)
+        
+        fs.readFile('databases/farms_definition.json', 'utf8', function (err, data) { if (!err) { 
+            farms = JSON.parse(data)
+
+            fs.readFile('databases/settings.json', 'utf8', function (err, data) { if (!err) { 
+                settings = JSON.parse(data)
+                var newMode = settings.listMode
+
+                fs.readFile('databases/contracts.json', 'utf8', function (err, data) { if (!err) { 
+                    contracts = JSON.parse(data)
+
+                    // Next funtion
+                    applyList2(hosts, farms, settings, newMode, contracts)
+
+                } else {
+                    // There is just no contracts file, move one with an empty array
+                    var contracts = []
+                    applyList2(hosts, farms, settings, newMode, contracts)
+                }});
+            
+            } else {
+                console.log('ERROR - The settings file could not be fetched. Run the "decentralizer scan" command first')
+                console.log()
+            }});
+
+        } else {
+            console.log('ERROR - Databases are corrupted. Please, download again Decentralizer from https://keops.cc/decentralizer')
+            console.log()
+        }})
+    } else {
+        console.log('ERROR - The hosts file could not be fetched. Run the "decentralizer scan" command first')
+        console.log()
+    }})
+}
+
+
+function applyList2(hosts, farms, settings, newMode, contracts) {
+    farmsFlagged = 0
+    for (var i = 0; i < farms.length; i++) {
+        if (farms[i].alert == true) {farmsFlagged++}
+    }
+    if ((settings.listMode == "whitelist" || settings.listMode == "blacklist") && farmsFlagged > 0) {
+
+        for (var i = 0; i < hosts.length; i++) { // Each host
+            for (var j = 0; j < farms.length; j++) { // Each farm
+                if (farms[j].alert == true) {
+                    for (var k = 0; k < farms[j].hosts.length; k++) { // Each host in a farm
+                        if (farms[j].hosts[k].pubkey == hosts[i].publickey.key) {
+                            hosts[i].alert = true
+                        }
+                    }
+                }
+            }
+        }
+
+        var correctedHosts = 0
+        for (var i = 0; i < hosts.length; i++) {
+            if (newMode == "blacklist") {
+                if (hosts[i].onList != true && hosts[i].alert == true) {
+                    hosts[i].onList = true
+                    correctedHosts++
+                }
+            } else if (newMode == "whitelist") {
+                if (hosts[i].onList == true && hosts[i].alert == true) {
+                    hosts[i].onList = false
+                    correctedHosts++
+                }
+            }
+        }
+
+        if (newMode == "blacklist" && correctedHosts > 0) {
+            console.log(correctedHosts + " dangerous hosts have been added automatically to the blacklist for safety")
+        } else if (newMode == "whitelist" && correctedHosts > 0) {
+            console.log(correctedHosts + " dangerous hosts have been removed automatically from the withelist for safety")
+        }
+
+        // Saving the corrected hosts file
+        fs.writeFileSync('databases/hosts.json', JSON.stringify(hosts))
+
+        // Preparing the array
+        var list = []
+        for (var i = 0; i < hosts.length; i++) {
+            if (hosts[i].onList == true) {
+                list.push({
+                    ip: hosts[i].netaddress,
+                    pubkey: hosts[i].publickeystring,
+                    key: hosts[i].publickey.key
+                })
+            }
+        }
+        if (settings.listMode == "whitelist") {
+            var availableHosts = list.length
+        } else if (settings.listMode == "blacklist") {
+            var availableHosts = hosts.length - list.length
+        }
+
+        // Checking how many contracts will be cancelled
+        var contractsToCancel = 0
+        for (var i = 0; i < contracts.length; i++) {
+            var matchContract = false
+            for (var j = 0; j < list.length; j++) {
+                // Depending on the mode
+                if (settings.listMode == "blacklist") {
+                    if (contracts[i].hostpublickey.key == list[j].key) {
+                        contractsToCancel++ // Add to count
+                    }
+                } else if (settings.listMode == "whitelist") {
+                    if (contracts[i].hostpublickey.key == list[j].key) {
+                        matchContract = true
+                    }
+                }
+            }
+            if (settings.listMode == "whitelist" && matchContract == false) {
+                // If we are in whitelist, and the contract was not found on it
+                contractsToCancel++
+            }
+        }
+
+        // Asking for feedback before applying
+        console.log(list.length + " hosts will be " + settings.listMode + "ed")
+        console.log("After applying this Filter, " + availableHosts + " hosts will be available to form contracts with")
+        console.log(contractsToCancel + " of your current contracts will be immediately cancelled")
+        console.log("Proceed? (y/n)")
+
+        // Input form
+        var stdin = process.stdin;
+        stdin.setRawMode( true );
+        stdin.resume();
+        stdin.setEncoding( 'utf8' );
+        stdin.on( 'data', function( key ){
+            if ( key === '\u0003' ) { // ctrl-c
+                process.exit();
+            } else if (key === 'y') {
+                console.log()
+                siaFilter(list, settings)
+            } else if (key === 'n') {
+                console.log()
+                process.exit();
+            }
+            //process.stdout.write( key );
+        });
+
+    } else if (settings.listMode == "disable") {
+
+        var list = []
+        // Asking for feedback before applying
+        console.log("This will disable the Filter on Sia")
+        console.log("Proceed? (y/n)")
+
+        // Input form
+        var stdin = process.stdin;
+        stdin.setRawMode( true );
+        stdin.resume();
+        stdin.setEncoding( 'utf8' );
+        stdin.on( 'data', function( key ){
+            if ( key === '\u0003' ) { // ctrl-c
+                process.exit();
+            } else if (key === 'y') {
+                console.log()
+                siaFilter(list, settings)
+            } else if (key === 'n') {
+                console.log()
+                process.exit();
+            }
+            //process.stdout.write( key );
+        });
+    }
+}
+
+
+function filterFarms() {
+    // Adds farms to the Filter on a blacklist, excludes them on a whitelist
+    fs.readFile('databases/hosts.json', 'utf8', function (err, data) { if (!err) { 
+        hosts = JSON.parse(data);
+        fs.readFile('databases/farms_definition.json', 'utf8', function (err, data) { if (!err) { 
+            farms = JSON.parse(data);
+            // Opening the hosts file to re-add the "onlist" value (hosts added to the Filter)
+            fs.readFile('databases/settings.json', 'utf8', function (err, data) { if (!err) { 
+                settings = JSON.parse(data);
+
+                if (settings.listMode == "disable") {
+                    console.log('ERROR - Your Filter is currently disabled. Set it as whitelist or blacklist to apply this command')
+                    console.log()
+                } else if (settings.listMode == "whitelist" || settings.listMode == "blacklist") {
+                    applyFarmsToFilter(settings.listMode, farms, hosts)
+                }
+                
+            } else {
+                console.log('ERROR - Databases not found. Run the "decentralizer scan" command first')
+                console.log()
+            }});
+        } else {
+            console.log('ERROR - Databases not found. Run the "decentralizer scan" command first')
+            console.log()
+        }});     
+    } else {
+        console.log('ERROR - Databases not found. Run the "decentralizer scan" command first')
+        console.log()
+    }});
+}
+
+function applyFarmsToFilter(mode, farmsDefinition, hosts) {
+    // Applies the farms list to the Filter
+    
+    var counter = 0
+    // Check on each farm and marks the host if it is not the first one found on the farms definition list
+    for (var i = 0; i < farmsDefinition.length; i++) {
+        var firstHostFound = false
+        for (var j = 0; j < farmsDefinition[i].hosts.length; j++) {
+            for (var k = 0; k < hosts.length; k++) {
+                if (farmsDefinition[i].hosts[j].pubkey == hosts[k].publickey.key) {
+                    if (firstHostFound == false) {
+                        // Do nothing with the first host of the farm identified, just update the boolean
+                        firstHostFound = true
+                    } else {
+                        if (mode == "whitelist") {
+                            hosts[k].onList = false
+                            counter++
+                        } else {
+                            hosts[k].onList = true
+                            counter++
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Saving the corrected hosts file
+    fs.writeFileSync('databases/hosts.json', JSON.stringify(hosts))
+
+    if (mode == "whitelist") {
+        console.log("Hosts removed from the whitelist: " + counter)
+        console.log()
+    } else {
+        console.log("Hosts added to the blacklist: " + counter)
+        console.log()
+    }
+    
+}
+
+
+function viewVersions() {
+    // Displays a list of versions of hosts, with the count of hosts
+
+    // Open file
+    fs.readFile('databases/hosts.json', 'utf8', function (err, data) { if (!err) { 
+        hosts = JSON.parse(data);
+
+        var versions = []
+
+        // Iterating hosts
+        for (var i = 0; i < hosts.length; i++) {
+            var versionMatch = false
+            for (var j = 0; j < versions.length; j++) {
+                if (hosts[i].version == versions[j].version) {
+                    versionMatch = true
+                    versions[j].hosts++
+                }
+            }
+            if (versionMatch == false) {
+                // Create new entry on array
+                versions.push({
+                    version: hosts[i].version,
+                    hosts: 1
+                })
+            }
+        }
+
+        // Sorting by version
+        function compare(a,b) {
+            if (a.version < b.version)
+                return 1;
+            if (a.version > b.version)
+                return -1;
+            return 0;
+        }
+        versions.sort(compare);
+
+        // Displaying table
+        data = [["Sia version", "Number of hosts"]]
+        for (var i = 0; i < versions.length; i++) {
+            // Correcting data of not geolocated hosts
+
+            // Adding to table
+            data.push([
+                versions[i].version,
+                versions[i].hosts
+            ])
+        }
+        output = table.table(data);
+        console.log(output);
+        console.log("Add all the hosts of a software version with the command 'decentralizer filter add version [version#]")
+        console.log()
+
+    } else {
+        console.log('ERROR - The hosts file could not be fetched. Run the "decentralizer scan" command first')
+        console.log()
+    }});
+}
+
+function addVersion(argument4) {
+    // Adds a version number to the Filter
+    fs.readFile('databases/hosts.json', 'utf8', function (err, data) { if (!err) { 
+        hosts = JSON.parse(data);
+        fs.readFile('databases/farms_definition.json', 'utf8', function (err, data) { if (!err) { 
+            farms = JSON.parse(data);
+            fs.readFile('databases/settings.json', 'utf8', function (err, data) { if (!err) { 
+                settings = JSON.parse(data);
+            
+                var addingHosts = 0
+                for (var i = 0; i < hosts.length; i++) {
+                    if (hosts[i].version == argument4) {
+                        if (settings.listMode == "disable" || settings.listMode == "blacklist") {
+                            var alert = false
+                        } else if (settings.listMode == "whitelist") {
+                            // We don't want to add an alerted host to a whitelist
+                            var alert = checkAlertOnHost(hosts[i].publickeystring, hosts[i].netaddress, farms) // Checking for alerts
+                        }
+                        if (alert == false) {
+                            addingHosts++
+                            hosts[i].onList = true
+                        }
+                    }
+                }
+
+                if (addingHosts > 0) {
+                    // Saving
+                    fs.writeFileSync('databases/hosts.json', JSON.stringify(hosts))
+                    console.log(addingHosts + " hosts using the version " + argument4 +" have been added to the Filter")
+                    console.log()
+                } else {
+                    console.log('ERROR - No host added using this software version')
+                    console.log()
+                }
+            
+            } else {
+                console.log('ERROR - The settings file could not be fetched. Run the "decentralizer scan" command first')
+                console.log()
+            }});
+        } else {
+            console.log('ERROR - The farms definition file could not be fetched. Run the "decentralizer scan" command first')
+            console.log()
+        }});
+    } else {
+        console.log('ERROR - The hosts file could not be fetched. Run the "decentralizer scan" command first')
+        console.log()
+    }});
+}
+
+
+function checkAlertOnHost(pubkey, ip, farms) {
+    // Checks if the host to be added has an alert on it
+    var alert = false // By default
+    for (var i = 0; i < farms.length; i++) {
+        if (farms[i].alert == true) {
+            for (var j = 0; j < farms[i].hosts.length; j++) {
+                if (farms[i].hosts[j].publickeystring == pubkey) {
+                    alert = true
+                    console.log("* The host " + ip + " was identified as unsafe and will not be added to the filter")
+                }
+            }
+        }
+        
+    }
+    return alert
+}
+
+
+function siaFilter(list, settings) {
+    // Connects to Sia and applies the List to the hosts Filter of Sia
+    
+    var hostsList = []
+    for (var i = 0; i < list.length; i++) {
+        hostsList.push(list[i].pubkey)
+    }
+
+    sia.call(basicAuth, {
+        url: "/hostdb/filtermode",
+        method: "POST",
+        body: {
+            filtermode: settings.listMode,
+            hosts: hostsList,
+        },
+    })
+    .then((API) => {
+        console.log("\nFilter applied successfully to Sia\n")
+        process.exit();
+    })
+    .catch((err) => {
+        console.log("ERROR - Filter could not be applied. Is Sia software running and updated to 1.4.0 or onwards?\n")
+        console.log(err)
+        process.exit();
+    })
+}
+
 

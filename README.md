@@ -1,7 +1,7 @@
 ![logo](https://github.com/hakkane84/Decentralizer/blob/master/full_logo.png)
 # Decentralizer
 
-Contracts micro-managing and unsafe hosts protection for Sia (GUI)
+Contracts micro-managing and unsafe hosts protection for Sia (CLI)
 
 Website: https://keops.cc/decentralizer
 
@@ -23,9 +23,11 @@ Ready-to-use binaries for Windows, MacOS and Linux can be downloaded here: https
 * 2 - Open a command line interface of your OS on the folder where you downloaded the binary.
 * *On Linux, you'll need to make the binary executable with `sudo chmod +x decentralizer`*
 
-Decentralizer commands:
+### General commands:
 * `./decentralizer help`: Shows the list of all possible commands with explanations
-* `./decentralizer scan`: Downloads databases from SiaStats and alanyzes hosts and contracts. After the analysis, a numbered list of the detected hosts belonging to farms will be shown. Dangerous hosts will be identified with a `[*]` and an alert message.
+* `./decentralizer scan`: Downloads databases from SiaStats and alanyzes hosts and contracts. After the analysis, a numbered list of the detected hosts belonging to farms will be shown. Dangerous hosts will be identified with an alert message.
+
+
 * `./decentralizer show farms`: Shows again the list of farms
 * `./decentralizer show contracts`: Shows the full list of contracts, belonging or not to farms. The Contract-ID number allows to individually cancel them
 * `./decentralizer remove auto`: Allows the app to automatically cancel contracts with centralized hosts. Only the contract with the host holding more of your data of each farm will be kept. 
@@ -52,6 +54,20 @@ These binaries were compiled using `pkg` (https://github.com/zeit/pkg)
 * `npm install` to install all the dependencies
 * Install `pkg`: `npm install -g pkg`
 * Run `pkg ./` to create binaries for the 3 main OS
+
+## Changes log
+### v1.0.0
+* Full rewrite of the code logic: now geolocation of all the hosts is primarly obtained from SiaStats and additional inquires to geolocation databases is performed locally in absence of data from SiaStats
+* All contracts can be now individually cancelled (not just farms)
+* Decentralizer now allows to create and apply a hosts filter to Sia. Build a filter by adding hosts manually, according to their country or their Sia version
+* New databases structure allows easy inter-operability between multiple machines (even those using the GUI version) just by moving the `databases` folder
+
+### v0.2.0
+* Decentralizer connects to SiaStats to obtain additional farms information
+* Unsafe hosts hosts detected and alerted thanks to SiaStats databases
+
+### v0.1.0
+* Initial release
 
 ## Acknowledgements
 

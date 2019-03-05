@@ -71,6 +71,10 @@ For safety reasons, hosts flagged as unsafe by SiaStats can't be included on a w
 * Run `pkg ./` to create binaries for the 3 main OS
 
 ## Changes log
+
+### v1.0.1
+* Corrected a bug by which the list of hosts was not really arranged by the host rank
+
 ### v1.0.0
 * Full rewrite of the code logic: now geolocation of all the hosts is primarly obtained from SiaStats and additional inquires to geolocation databases is performed locally in absence of data from SiaStats.
 * All contracts can be now individually cancelled (not just farms).

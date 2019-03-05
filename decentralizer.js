@@ -174,17 +174,62 @@ function siaHosts(siastatsGeoloc, siastatsFarms) {
                     active.push(allHosts[i])
                 }
             }
-            hostsProcessing(siastatsGeoloc, siastatsFarms, active)
+            var hostNum = 0
+            hostsScore(siastatsGeoloc, siastatsFarms, active, hostNum)
         })
         .catch((err) => {
             console.log("Error retrieving data from Sia. Is Sia working, synced and connected to internet? Try this script again after restarting Sia.")
-            console.log()
+            console.log(err)
         })
     })
     .catch((err) => {
         console.log("Error connecting to Sia. Start the Sia app (either daemon or UI) and try again")
         console.log()
     })
+}
+
+
+function hostsScore(siastatsGeoloc, siastatsFarms, active, hostNum) {
+    // Iterates on each host to collect from Sia the score of the host
+    if (hostNum < active.length) {
+        sia.connect('localhost:9980')
+        .then((siad) => {siad.call('/hostdb/hosts/' + active[hostNum].publickeystring)
+            .then((host) => {
+                var score = host.scorebreakdown.conversionrate
+                active[hostNum].score = score
+                hostNum++
+                process.stdout.clearLine();  // clear current text
+                process.stdout.cursorTo(0);  // move cursor to beginning of line
+                process.stdout.write("(" + hostNum + "/" + active.length + ") - " + active[hostNum-1].netaddress)
+                hostsScore(siastatsGeoloc, siastatsFarms, active, hostNum)
+            })
+            .catch((err) => {
+                console.log("Error retrieving data from Sia. Is Sia working, synced and connected to internet? Try this script again after restarting Sia.")
+                console.log()
+            })
+        })
+        .catch((err) => {
+            console.log("Error connecting to Sia. Start the Sia app (either daemon or UI) and try again")
+            console.log()
+        })
+
+    } else {
+        // We are done. Move to the next step
+        process.stdout.clearLine();  // clear current text
+        console.log()
+        
+        // Arranges the hosts array by score
+        function compare(a,b) {
+            if (a.score < b.score)
+                return -1;
+            if (a.score > b.score)
+                return 1;
+            return 0;
+        }
+        active.sort(compare);
+
+        hostsProcessing(siastatsGeoloc, siastatsFarms, active)
+    }
 }
 
 

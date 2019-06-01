@@ -6,8 +6,8 @@
   "email": "keops_cc@outlook.com",
   "homepage": "http://keops.cc/decentralizer",
   "repository": {
-      "type": "git",
-      "url": "https://github.com/hakkane84/Decentralizer-CLI"
+    "type": "git",
+    "url": "https://github.com/hakkane84/Decentralizer-CLI"
   },
   "author": "Salva Herrera",
   "main": "decentralizer.js",
@@ -17,6 +17,6 @@
     "babel-runtime": "^6.26.0",
     "get-json": "^1.0.1",
     "sia.js": "^0.4.2",
-    "table": "^5.1.1"
+    "table": "^5.4.0"
   }
 }

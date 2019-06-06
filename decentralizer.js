@@ -1,4 +1,4 @@
-// DECENTRALIZER 1.0.0
+// DECENTRALIZER 1.1.0
 // Copyright 2018, 2019 by Salvador Herrera <keops_cc@outlook.com>
 // Licensed under GPLv3
 
@@ -6,6 +6,7 @@
 var fs = require('fs');
 var sia = require('sia.js');
 var http = require('request');
+var https = require('https');
 var axios = require('axios');
 var table = require('table')
 var Path = require('path')
@@ -13,12 +14,34 @@ var os = require('os')
 
 // Passing arguments
 var argument1 = process.argv[2]
-var argument2 = process.argv[3]
-var argument3 = process.argv[4]
-var argument4 = process.argv[5]
+if (argument1 == "-debug" || argument1 == "--debug" || argument1 == "-d") {
+    // Debug mode
+    var debugMode = true
+    var argument1 = process.argv[3]
+    var argument2 = process.argv[4]
+    var argument3 = process.argv[5]
+    var argument4 = process.argv[6]
+    var argument5 = process.argv[7]
+    var argument6 = process.argv[8]
+    var argument7 = process.argv[9]
+} else {
+    // Normal mode
+    var debugMode = false
+    var argument2 = process.argv[3]
+    var argument3 = process.argv[4]
+    var argument4 = process.argv[5]
+    var argument5 = process.argv[6]
+    var argument6 = process.argv[7]
+    var argument7 = process.argv[8]
+}
+
 
 console.log()
-console.log('\x1b[44m%s\x1b[0m', "*** KEOPS DECENTRALIZER v1.0.0 ***")
+if (debugMode == false) {
+    console.log('\x1b[44m%s\x1b[0m', "*** KEOPS DECENTRALIZER v1.1.0 ***")
+} else {
+    console.log('\x1b[44m%s\x1b[0m', "*** KEOPS DECENTRALIZER v1.1.0 (debug mode) ***")
+}
 console.log()
 
 
@@ -44,14 +67,15 @@ function apiPassword() {
     const pass = fs.readFileSync(Path.join(configPath, 'apipassword')).toString().trim()
     return pass || ''
 }
+if (debugMode == true) {console.log("// DEBUG - Collecting API password")}
 var apiPassword = apiPassword()
+if (debugMode == true) {console.log("// DEBUG - API password: " + apiPassword.slice(0,5) + "..." + apiPassword.slice((apiPassword.length-6), (apiPassword.length-1)))}
 const basicAuth = `:${apiPassword}@${'localhost:9980'}`
 
 
 // Directing to the proper function according to the user arguments
 if (argument1 == "scan") {
-    openSettingsFile() // In the background, we geolocate the user to update the settings file
-    siastatsGeolocFile()
+    openSettingsFile()
 } else if (argument1 == "remove") {
     removeContract(argument2)
 } else if (argument1 == "view" && argument2 == "farms") {
@@ -70,12 +94,25 @@ if (argument1 == "scan") {
     help()
 } else if (argument1 == "filter" && argument2 == null) {
     showList()
-} else if (argument1 == "filter" && argument2 == "add" && argument3 != null && argument3 != "version") {
+} else if (argument1 == "filter" && argument2 == "help") {
+    filterHelp()
+} else if (argument4 == "and" || argument4 == "AND" || argument6 == "and" || argument6 == "AND") {
+    var argumentsArray = [argument3.toString(), argument5.toString()]
+    // Adding additional arguments, if they exist
+    if (argument7 != null) {
+        argumentsArray.push(argument7.toString())
+    }
+    combinatorialAdd(argumentsArray)
+} else if (argument1 == "filter" && argument2 == "add" && argument3 != null && argument3 != "version" && argument3 != "score") {
     addList(argument3)
 } else if (argument1 == "filter" && argument2 == "add" && argument3 == "version" && argument4 != null) {
     addVersion(argument4)
-} else if (argument1 == "filter" && argument2 == "remove") {
+} else if (argument1 == "filter" && argument2 == "add" && argument3 == "score" && argument4 != null) {
+    addScore(argument4)
+} else if (argument1 == "filter" && argument2 == "remove" && argument3 != "score") {
     removeList(argument3)
+} else if (argument1 == "filter" && argument2 == "remove" && argument3 == "score" && argument4 != null) {
+    removeScore(argument4)
 } else if (argument1 == "filter" && argument2 == "mode" && (argument3 == "disable" || argument3 == "whitelist" || argument3 == "blacklist")) {
     modeList(argument3)
 } else if (argument1 == "filter" && argument2 == "farms") {
@@ -90,41 +127,141 @@ if (argument1 == "scan") {
 }
 
 function help() {
+    console.log()
+    console.log('\x1b[47m\x1b[30m%s\x1b[0m', " General commands ")
+    console.log("   * decentralizer help --> Shows all the Decentralizer commands")
     console.log("   * decentralizer scan --> Analyzes contracts and shows hosts belonging to hosting farms")
-    console.log("   * decentralizer remove [x] --> Removes the host numbered 'x' (refer to the 'decentralizer scan') from your contracts")
+    console.log("   * decentralizer remove [x] --> Removes the host numbered 'x' (refer to the 'decentralizer view contracts') from your contracts")
     console.log("   * decentralizer remove auto --> Removes all but one of the duplicate hosts in a hosting farm")
     console.log("   * decentralizer view farms --> Shows the list of farms obtained on the last scan")
     console.log("   * decentralizer view contracts --> Shows the full list of contracts, obtained on the last scan")
+    console.log('\n\x1b[47m\x1b[30m%s\x1b[0m', " Filter walkthrough ")
+    console.log("   * decentralizer filter help --> Shows a walkthrough guide for setting up a Filter (recommended)")
+    console.log('\n\x1b[47m\x1b[30m%s\x1b[0m', " Filter commands ")
+    console.log("   * decentralizer filter --> Shows your Filter mode (blacklist, whitelist) and the hosts included on it")
     console.log("   * decentralizer view hosts --> Shows all hosts, ordered by rank")
     console.log("   * decentralizer view hosts countries --> Shows the list of country codes of hosts")
     console.log("   * decentralizer view hosts versions --> Shows the list of version numbers of hosts")
     console.log("   * decentralizer view hosts [country code] --> Shows the hosts in the specified country")
-    console.log("   * decentralizer view hosts orderby [storage/upload/download/collateral] --> Shows all hosts, ordered by the indicated parameter")
-    console.log("   * decentralizer filter --> Shows your Filter mode (blacklist, whitelist) and the hosts included on it")
+    console.log("   * decentralizer view hosts orderby [storage/upload/download/collateral/score] --> Shows all hosts, ordered by the indicated parameter")
     console.log("   * decentralizer filter add [hostID / country code] --> Adds the desired HostID or all the hosts in a country to the Filter")
     console.log("   * decentralizer filter add version [version] --> Adds to the filter all the hosts using the selected Sia version (e.g. 1.4.0)")
+    console.log("   * decentralizer filter add score [score] --> Adds to the filter all the hosts with an specific SiaStats performance score (e.g. 9)")
+    console.log("   * decentralizer filter add [countries] AND [versions] AND [scores] --> Adds to the filter all the hosts the meet the combination of any of")
+    console.log("     these parameters. ('filter help' for more information)")
     console.log("   * decentralizer filter remove [y] --> Removes the host with FilterID 'y' (check it with 'filter show') from the Filter")
+    console.log("   * decentralizer filter remove score [score] --> Removes from the filter any host with the specified SiaStats performance score (e.g. 9)")
     console.log("   * decentralizer filter mode [disable/whitelist/blacklist] --> Changes the mode of the Filter that will be applied to the list of hosts")
     console.log("   * decentralizer filter clear --> Removes all the hosts from the Filter, and sets its mode to 'disable'")
     console.log("   * decentralizer filter farms --> On whitelist, removes hosts in farms from the Filter. On blacklist, adds them to the Filter")
     console.log("   * decentralizer filter apply --> Applies the Filter of hosts and the Filter mode (white/blacklist/disable) to Sia")
-    console.log("   * decentralizer help --> Shows again all the possible commands")
     console.log()
+}
+
+function filterHelp() {
+    console.log("This is a short walkthrough of the process of setting up a Filter of hosts for Sia")
+    console.log("It assumes you are using a clean Filter. The Filter can be cleared at any moment with the command 'decentralizer filter clear'")
+    
+    console.log('\n\x1b[47m\x1b[30m%s\x1b[0m', " 1 - Set the filter type ")
+    console.log("\nSet the filter mode with the command './decentralizer filter mode [mode]'")
+    // Table with modes
+    var data = [
+        ["[mode]", "Result"],
+        ["disable", "Disables the filter and removes all the hosts from it. Sia will use any host on its database"],
+        ["whitelist", "Only the hosts included on the Filter will be used by Sia to form contracts with"],
+        ["blacklist", "The hosts included in the Filter will be avoided by Sia"]
+    ]
+    output = table.table(data);
+    console.log(output);
+
+    console.log('\n\x1b[47m\x1b[30m%s\x1b[0m', " 2 - (Optional) Check the hosts available for your preferences ")
+    console.log('\nYou can check the list of hosts available, their settings and characteristics, with the following commands:')
+    console.log("   * Display all the hosts, ordered by their Sia rank on your hostdb, with the command 'decentralizer view hosts'")
+    console.log("   * Display all the hosts, ordered by the criteria of your choice with the command 'decentralizer view hosts orderby [parameter]'")
+    console.log("     'parameter' can be: 'storage' (price), 'upload' (price), 'download' (price), 'collateral' (price), 'score' (SiaStats performance score)")
+    console.log("   * You can check the number of hosts available on each country or usuing each Sia software version with the command")
+    console.log("     'decentralizer view hosts [countries/versions]'")
+    console.log("   * Check all the hosts available on an specific country with 'decentralizer view hosts [country code]'. Use 2-character interantional codes.")
+    console.log("     'EU' can be used, representing the European Economic Area")
+
+    console.log('\n\n\x1b[47m\x1b[30m%s\x1b[0m', " 3 - Add hosts to the filter ")
+    console.log("\nHosts can be added to the filter with several methods:")
+    console.log("   * Add a single host manually with its hostID (obtain it from the lists shown on the previous step): use `decentralizer filter add [hostID]`")
+    console.log("   * Add all the hosts in a country with the command: `decentralizer filter add [country code]` (use 2-character interantional codes)")
+    console.log("   * Add all the hosts using an specific Sia software version: `decentralizer filter add version [version]")
+    console.log("     Example: `decentralizer filter add 1.4.0`")
+    console.log("   * Add all the hosts with an specific SiaStats performance score: `decentralizer filter add score [score]")
+    console.log("   * Add hosts with a combination of country, version and score: `decentralizer filter add [countries] AND [versions] AND [scores]")
+    console.log("     You can use either two or 3 criteria. Countries, versions and scores can be indicated on any order. For more than one element on each criteria,")
+    console.log("     place them inside brackets, separated by commas and no spaces in between.")
+    console.log("     Some examples: `decentralizer filter add [US,CA,MX] AND 1.4.0 AND [10,9,8,7]`; `decentralizer filter add [1.4.1,1.4.0] AND EU`")
+
+    console.log('\n\n\x1b[47m\x1b[30m%s\x1b[0m', " 4 - Remove hosts from the filter to customize further ")
+    console.log("\n   * Check the hosts currently on your filter with `decentralizer filter`")
+    console.log("   * Remove individual hosts with `decentralizer filter remove [FilterId]` (get FilterId from the previous command)")
+    console.log("   * Remove all the hosts with an specific SiaStats performance score: `decentralizer filter remove score [score]")
+
+    console.log('\n\n\x1b[47m\x1b[30m%s\x1b[0m', " 5 - (Optional) Avoid hosting farms on your hosts list")
+    console.log("\nYou can avoid forming more than one contract with a single hosting farm with the command `decentralizer filter farms`. If you are building a")
+    console.log("whitelist, farms will be removed. If it is a blacklist, all farms will be included. Only one host per farm will be kept for forming contracts")
+    
+    console.log('\n\n\x1b[47m\x1b[30m%s\x1b[0m', " 6 - Check and apply the Filter to Sia")
+    console.log("\n   * Check the hosts currently on your filter with `decentralizer filter`")
+    console.log("   * Apply the filter to the Sia software with the command `decentralizer filter apply`. Changes on the filter done with the previous commands are")
+    console.log("     only made final with this command\n")
+}
+
+
+function openSettingsFile() {
+    // First, updating the settings file or creating a new one if it is the first syncing
+    if (debugMode == true) {console.log("// DEBUG - Opening the settings file")}
+    
+    var timestamp = Date.now() // Timestamp
+
+    // Opening settings file
+    fs.readFile('databases/settings.json', 'utf8', function (err, data) { if (!err) { 
+        if (debugMode == true) {console.log("// DEBUG - Found settings file, updating it")}
+
+        var settings = JSON.parse(data)
+        settings.lastsync = timestamp
+        fs.writeFileSync('databases/settings.json', JSON.stringify(settings))
+
+        siastatsGeolocFile()
+    } else {
+        // Initialize a settings file here
+        if (debugMode == true) {console.log("// DEBUG - No settings file found. Creating a new one")}
+        settings = {
+            userLon: null,
+            userLat: null,
+            lastsync: timestamp,
+            listMode: "disable"
+        }
+        fs.writeFileSync('databases/settings.json', JSON.stringify(settings))
+
+        siastatsGeolocFile()
+    }});
 }
 
 
 function siastatsGeolocFile() {
     // SiaStats JSON geolocation. If the file can't be downloaded, the local copy is used instead
-    axios.get('https://siastats.info/dbs/decentralizer_hosts_geoloc.json').then(response => {
+    if (debugMode == true) {console.log("// DEBUG - Getting the SiaStats geolocation/scores API")}
+
+    // Removing SSL authorization for this specific API call
+    var agent = new https.Agent({  
+        rejectUnauthorized: false
+    });
+
+    axios.get('https://siastats.info:3510/hosts-api/decentralizer/sia', { httpsAgent: agent }).then(response => {
         var siastatsGeoloc = response.data
-        console.log("Downloaded " + siastatsGeoloc.length + " hosts geolocation from SiaStats.info");
+        console.log("Downloaded " + siastatsGeoloc.length + " hosts geolocation and score from SiaStats.info");
 
         // Saving the file
         fs.writeFileSync('databases/hosts_geoloc.json', JSON.stringify(siastatsGeoloc))
 
         siastatsFarmsFile(siastatsGeoloc)
     }).catch(error => {
-        
+        if (debugMode == true) {console.log("// DEBUG - Could not download SiaStats API. Reading local file instead. Error: \n" + error)}
         fs.readFile('databases/hosts_geoloc.json', 'utf8', function (err, data) { if (!err) { 
             siastatsGeoloc = JSON.parse(data);
             console.log("The hosts geolocation file could not be fetched from SiaStats.info. Using a local copy instead")
@@ -138,6 +275,8 @@ function siastatsGeolocFile() {
 
 function siastatsFarmsFile(siastatsGeoloc) {
     // SiaStats JSON geolocation. If the file can't be downloaded, the local copy is used instead
+    if (debugMode == true) {console.log("// DEBUG - Getting the SiaStats farms API")}
+
     axios.get('https://siastats.info/dbs/farms_api.json').then(response => {
         var siastatsFarms = response.data
         console.log("Downloaded data from " + siastatsFarms.length + " farms from SiaStats.info");
@@ -147,7 +286,7 @@ function siastatsFarmsFile(siastatsGeoloc) {
 
         siaHosts(siastatsGeoloc, siastatsFarms)
     }).catch(error => {
-        
+        if (debugMode == true) {console.log("// DEBUG - Could not download SiaStats API. Reading local file instead. Error: \n" + error)}
         fs.readFile('databases/farms_definition.json', 'utf8', function (err, data) { if (!err) { 
             siastatsFarms = JSON.parse(data);
             console.log("The farms definition file could not be fetched from SiaStats.info. Using a local copy instead")
@@ -175,16 +314,19 @@ function siaHosts(siastatsGeoloc, siastatsFarms) {
                 }
             }
             var hostNum = 0
+            if (debugMode == true) {console.log("// DEBUG - Iterating hostdb/hosts/ Sia calls for each host")}
             hostsScore(siastatsGeoloc, siastatsFarms, active, hostNum)
         })
         .catch((err) => {
             console.log("Error retrieving data from Sia. Is Sia working, synced and connected to internet? Try this script again after restarting Sia.")
-            console.log(err)
+            if (debugMode == true) {console.log("// DEBUG - Error: \n" + err)}
+            console.log()
         })
     })
     .catch((err) => {
         console.log("Error connecting to Sia. Start the Sia app (either daemon or UI) and try again")
         console.log()
+        if (debugMode == true) {console.log("// DEBUG - Error: \n" + err)}
     })
 }
 
@@ -205,11 +347,13 @@ function hostsScore(siastatsGeoloc, siastatsFarms, active, hostNum) {
             })
             .catch((err) => {
                 console.log("Error retrieving data from Sia. Is Sia working, synced and connected to internet? Try this script again after restarting Sia.")
+                if (debugMode == true) {console.log("// DEBUG - Error on host " + active[hostNum].publickeystring + ": \n" + err)}
                 console.log()
             })
         })
         .catch((err) => {
             console.log("Error connecting to Sia. Start the Sia app (either daemon or UI) and try again")
+            if (debugMode == true) {console.log("// DEBUG - Error on host " + active[hostNum].publickeystring + ": \n" + err)}
             console.log()
         })
 
@@ -217,6 +361,7 @@ function hostsScore(siastatsGeoloc, siastatsFarms, active, hostNum) {
         // We are done. Move to the next step
         process.stdout.clearLine();  // clear current text
         console.log()
+        if (debugMode == true) {console.log("// DEBUG - Host data collection done")}
         
         // Arranges the hosts array by score
         function compare(a,b) {
@@ -234,23 +379,30 @@ function hostsScore(siastatsGeoloc, siastatsFarms, active, hostNum) {
 
 
 function hostsProcessing(siastatsGeoloc, siastatsFarms, hostdb) {
+    if (debugMode == true) {console.log("// DEBUG - Starting hostsProcessing() function")}
     // Assigns IPs to the hostdb and determines the hosts that need additional geolocation
     hostsToGeoloc = [] // Entries numbers that need to be geolocated locally by Decentralizer
     for (var i = 0; i < hostdb.length; i++) { // For each host
         var matchBool = false
         for (var j = 0; j < siastatsGeoloc.length; j++) { // For each geolocation in list
-            if (hostdb[i].publickey.key == siastatsGeoloc[j].pubkey) {
+            if (hostdb[i].publickeystring == siastatsGeoloc[j].pubkey) {
                 // Match, update hostdb entry
                 matchBool = true
                 hostdb[i].lon = siastatsGeoloc[j].lon
                 hostdb[i].lat = siastatsGeoloc[j].lat
                 hostdb[i].countryName = siastatsGeoloc[j].countryName
                 hostdb[i].countryCode = siastatsGeoloc[j].countryCode
+                hostdb[i].siastatsScore = siastatsGeoloc[j].siastatsScore
+
+                // We update the geoloc file with the pubkey in the non-hex format, as it will be lated needed for the contracts identification
+                siastatsGeoloc[j].pubkey2 = hostdb[i].publickey.key 
             }
         }
         if (matchBool == false) {
             // If no match, add to the list
             hostsToGeoloc.push(i)
+            
+            hostdb[i].siastatsScore = 0 // Adding a 0 in the score
         }
     }
 
@@ -260,6 +412,7 @@ function hostsProcessing(siastatsGeoloc, siastatsFarms, hostdb) {
         requestIP(siastatsFarms, hostdb, hostsToGeoloc, i, siastatsGeoloc)
     } else {
         // No additional host to geolocate, save and proceed to next step
+        if (debugMode == true) {console.log("// DEBUG - No additional host to geolocate. Moving to compareOldDb()")}
         compareOldDb(hostdb, siastatsFarms, siastatsGeoloc)
     }
 }
@@ -293,6 +446,7 @@ function requestIP(siastatsFarms, hostdb, hostsToGeoloc, i, siastatsGeoloc) {
     }).catch(error => {
         // On failed IP request, move to the next IP
         console.log(hostip + " - Failed")
+        if (debugMode == true) {console.log("// DEBUG - Error (non-critical): \n" + error)}
         nextIP(siastatsFarms, hostdb, hostsToGeoloc, i, siastatsGeoloc)
     })
 }
@@ -312,6 +466,7 @@ function nextIP(siastatsFarms, hostdb, hostsToGeoloc, i, siastatsGeoloc) {
 
 function compareOldDb(hostdb, siastatsFarms, siastatsGeoloc) {
     // Opening the hosts file to re-add the "onlist" value (hosts added to the Filter)
+    if (debugMode == true) {console.log("// DEBUG - compareOldDb(): reading hosts.json and updating it")}
     fs.readFile('databases/hosts.json', 'utf8', function (err, data) { if (!err) { 
         oldHosts = JSON.parse(data);
 
@@ -334,6 +489,7 @@ function compareOldDb(hostdb, siastatsFarms, siastatsGeoloc) {
         
     } else {
         // If no file was found, it is the first scanning: just proceed
+        if (debugMode == true) {console.log("// DEBUG - No previous hosts.json file. Creating new")}
         fs.writeFileSync('databases/hosts.json', JSON.stringify(hostdb))
         siaContracts(siastatsFarms, siastatsGeoloc)
     }});
@@ -346,6 +502,7 @@ function siaContracts(siastatsFarms, siastatsGeoloc) {
     sia.connect('localhost:9980')
     .then((siad) => {siad.call('/renter/contracts')
         .then((contractsAPI) => {
+            if (debugMode == true) {console.log("// DEBUG - /renter/contracts call succedded")}
             var contracts = contractsAPI.contracts
 
             if (contracts.length == 0) {
@@ -370,36 +527,41 @@ function siaContracts(siastatsFarms, siastatsGeoloc) {
         })
         .catch((err) => {
             console.log("Error retrieving data from Sia. Is Sia working, synced and connected to internet? Try this script again after restarting Sia.")
-            console.log(err)
+            if (debugMode == true) {console.log("// DEBUG - Error: " + err)}
+            console.log()
         })
     })
     .catch((err) => {
         console.log("Error connecting to Sia. Start the Sia app (either daemon or UI) and try again")
+        if (debugMode == true) {console.log("// DEBUG - Error: " + err)}
         console.log()
     })
 }
 
 
 function contractsIpAssign(siastatsFarms, contracts, siastatsGeoloc) {
-
     // Assigns IPs to the contracts and determines the hosts that need additional geolocation
+    if (debugMode == true) {console.log("// DEBUG - contractsIPAssign(): adding geolocation/score data to hosts")}
+
     contractsToGeoloc = [] // Entries numbers that need to be geolocated locally by Decentralizer
     for (var i = 0; i < contracts.length; i++) { // For each contract
         var matchBool = false
         for (var j = 0; j < siastatsGeoloc.length; j++) { // For each geolocation in list
-            if (contracts[i].hostpublickey.key == siastatsGeoloc[j].pubkey) {
+            if (contracts[i].hostpublickey.key == siastatsGeoloc[j].pubkey2) {
                 // Match, update hostdb entry
                 matchBool = true
                 contracts[i].lon = siastatsGeoloc[j].lon
                 contracts[i].lat = siastatsGeoloc[j].lat
                 contracts[i].as = siastatsGeoloc[j].as
                 contracts[i].countryName = siastatsGeoloc[j].countryName
-                contracts[i].countryCode = siastatsGeoloc[j].countryCode
+                contracts[i].siastatsScore = siastatsGeoloc[j].siastatsScore
             }
         }
         if (matchBool == false) {
             // If no match, add to the list
             contractsToGeoloc.push(i)
+
+            contracts[i].siastatsScore = 0 // 0 score, as it is not on the database
         }
     }
 
@@ -409,6 +571,7 @@ function contractsIpAssign(siastatsFarms, contracts, siastatsGeoloc) {
         requestContractIP(siastatsFarms, contracts, contractsToGeoloc, i)
     } else {
         // No additional host to geolocate, save and proceed to next step
+        if (debugMode == true) {console.log("// DEBUG - No geolocation necessary, saving contracts.json")}
         fs.writeFileSync('databases/contracts.json', JSON.stringify(contracts))
         processHosts(siastatsFarms, contracts)
     }
@@ -444,6 +607,7 @@ function requestContractIP(siastatsFarms, contracts, contractsToGeoloc, i) {
     }).catch(error => {
         // On failed IP request, move to the next IP
         console.log(hostip + " - Failed")
+        if (debugMode == true) {console.log("// DEBUG - Error: " + error)}
         nextContractIP(siastatsFarms, contracts, contractsToGeoloc, i)
     })
 }
@@ -467,6 +631,7 @@ function nextContractIP(siastatsFarms, contracts, contractsToGeoloc, i) {
 
 
 function processHosts(siastatsFarms, contracts) {
+    if (debugMode == true) {console.log("// DEBUG - processHosts() function")}
     console.log("Detecting hosting farms among contracts")
 
     // Finding centralized farms
@@ -510,7 +675,8 @@ function processHosts(siastatsFarms, contracts) {
                     contract: hostsGroups[j][k].id,
                     cost: parseFloat((hostsGroups[j][k].totalcost/1000000000000000000000000).toFixed(2)),
                     data: parseFloat((hostsGroups[j][k].size/1000000000).toFixed(2)), // In GB
-                    pubkey: hostsGroups[j][k].hostpublickey.key
+                    pubkey: hostsGroups[j][k].hostpublickey.key,
+                    siastatsScore: hostsGroups[j][k].siastatsScore
                 }
                 farmEntry.hosts.push(hostEntry)
             }
@@ -545,7 +711,8 @@ function processHosts(siastatsFarms, contracts) {
                 contract: hostsGroups[j][0].id,
                 cost: parseFloat((hostsGroups[j][0].totalcost/1000000000000000000000000).toFixed(2)),
                 data: parseFloat((hostsGroups[j][0].size/1000000000).toFixed(2)), // In GB
-                pubkey: hostsGroups[j][0].hostpublickey.key
+                pubkey: hostsGroups[j][0].hostpublickey.key,
+                siastatsScore: hostsGroups[j][0].siastatsScore
             }
             // Pushing it to the element 0 of farmList, the "Other hosts"
             farmList[0].hosts.push(hostEntry)
@@ -558,6 +725,7 @@ function processHosts(siastatsFarms, contracts) {
 
 function siastatsProcess(farmList, contracts, siastatsFarms) {
     // This function compares our farmList with the list of siastats farms, to add the remaining farm-positive contracts to farmList
+    if (debugMode == true) {console.log("// DEBUG - siastatsProcess() function: comparing farms list to data from SiaStats")}
 
     // A - Create a temporal array where we add contracts not yet assigned, and belonging to farms, to groups
     // Iterate on the list of farms, on each host of it
@@ -605,7 +773,8 @@ function siastatsProcess(farmList, contracts, siastatsFarms) {
                                         contract: extraGroups[m].hosts[n].id,
                                         cost: parseFloat((extraGroups[m].hosts[n].totalcost/1000000000000000000000000).toFixed(2)),
                                         data: parseFloat((extraGroups[m].hosts[n].size/1000000000).toFixed(2)), // In GB
-                                        siastatsFlag: true // Add the flag to the latest host of that farm (the one we just pushed)
+                                        siastatsFlag: true, // Add the flag to the latest host of that farm (the one we just pushed)
+                                        siastatsScore: extraGroups[m].hosts[n].siastatsScore
                                     })
                                 }
 
@@ -642,6 +811,7 @@ function siastatsProcess(farmList, contracts, siastatsFarms) {
                     contract: extraGroups[i].hosts[j].id,
                     cost: parseFloat((extraGroups[i].hosts[j].totalcost/1000000000000000000000000).toFixed(2)),
                     data: parseFloat((extraGroups[i].hosts[j].size/1000000000).toFixed(2)), // In GB
+                    siastatsScore: extraGroups[m].hosts[n].siastatsScore
                 })
 
                 // Adding an alert if the groups carries it
@@ -661,6 +831,7 @@ function siastatsProcess(farmList, contracts, siastatsFarms) {
 
 
     // Saving the farms file
+    if (debugMode == true) {console.log("// DEBUG - siastatsProcess() done. Saving farms.json")}
     fs.writeFileSync('databases/farms.json', JSON.stringify(farmList))
 
     showFarms(farmList)
@@ -668,6 +839,7 @@ function siastatsProcess(farmList, contracts, siastatsFarms) {
 
 
 function showFarms(farmList) {
+    if (debugMode == true) {console.log("// DEBUG - showFarms(): Showing the results")}
     let data, output;
 
     if (farmList.length <= 2) {
@@ -718,57 +890,13 @@ function showFarms(farmList) {
 }
 
 
-function openSettingsFile() {
-    // Timestamp
-    var timestamp = Date.now()
-
-    // Opening settings file
-    fs.readFile('databases/settings.json', 'utf8', function (err, data) { if (!err) { 
-        var settings = JSON.parse(data)
-        settings.lastsync = timestamp
-        userGeolocation(settings)
-    } else {
-        // Initialize a settings file here
-        settings = {
-            userLon: null,
-            userLat: null,
-            lastsync: timestamp,
-            listMode: "disable"
-        }
-        userGeolocation(settings)
-    }});
-}
-
-function userGeolocation(settings) {
-    var ipquery = "http://ip-api.com/json/"
-    http.get(ipquery).on('response', function (response) {
-        var body4 = '';
-        var i4 = 0;
-        response.on('data', function (chunk4) {
-            i4++;
-            body4 += chunk4;
-        });
-        response.on('end', function () {
-            var ipAPI = JSON.parse(body4)
-            settings.userLon = parseFloat(ipAPI.lon)
-            settings.userLat = parseFloat(ipAPI.lat)
-
-            fs.writeFileSync('databases/settings.json', JSON.stringify(settings))
-        })
-        response.on('error', function (chunk5) {
-            // Failed user geolocation
-            console.log("Error - failed to assess user geolocation")
-            fs.writeFileSync('databases/settings.json', JSON.stringify(settings))
-        });
-    })
-}
-
 
 
 /////////////////////////////////////////////////////
 // CONTRACT REMOVAL
 
 function removeContract(argument2) {
+    if (debugMode == true) {console.log("// DEBUG - Removing contract: " + argument2)}
     if (argument2 > 0 || argument2 == "auto") {
         
         // Open "farms.json" file
@@ -837,6 +965,7 @@ function removeContract(argument2) {
 
         } else {
             console.log("Error: Decentralizer needs to scan the contracts first. Run first 'decentralizer scan'")
+            if (debugMode == true) {console.log("// DEBUG - Error: " + err)}
         }});
 
     } else {
@@ -850,6 +979,7 @@ function removeContract(argument2) {
 
 function cancelContract(contractNum, contractsToRemove, attempt) {
     // Iterates on contractsToRemove canceling the contract
+    if (debugMode == true) {console.log("// DEBUG - cancelContract() function: " + contractsToRemove[contractNum].contract)}
     process.stdout.write("\n(" + (contractNum+1) + "/" + contractsToRemove.length + ") Canceling contract with host: " + contractsToRemove[contractNum].ip + " ...")
 
     // Sia call parameters
@@ -883,6 +1013,7 @@ function cancelContract(contractNum, contractsToRemove, attempt) {
     .catch((err) => {
         attempt++
         process.stdout.write(" RETRYING")
+        if (debugMode == true) {console.log("// DEBUG - Error: " + err)}
         if (attempt > 3) {
             console.log("\nError with command. This contract was not canceled: " + contractsToRemove[contractNum].ip)
             contractNum++
@@ -921,23 +1052,33 @@ function viewContracts() {
         farmList = JSON.parse(data);
         
         // Table headers
-        data = [["Contract #", "IP", "Value", "Data", "Is a farm","Alerts"]]
+        data = [["Contract #", "IP", "Value", "Data", "SiaStats Score", "Is a farm", "Alerts"]]
 
             var listNumber = 1
             // First those in farms, to keep compatibility of contract#
             for (var i = 1; i < farmList.length; i++) { // Each farm
                 if (farmList[i].hosts.length > 0) { // For not displaying the not geolocated if there is no host in this category
                     for (var j = 0; j < farmList[i].hosts.length; j++) { // Each host
+                        // SiaStats score representation
+                        if (farmList[i].hosts[j].siastatsScore > 0) {
+                            var score = '\x1b[42m ' + farmList[i].hosts[j].siastatsScore + ' \x1b[0m'
+                        } else {
+                            var score = '\x1b[41m ' + farmList[i].hosts[j].siastatsScore + ' \x1b[0m'
+                        }
+
+                        // SiaStats alert representation
                         if (farmList[i].message != null) {
                             alert = "*"
                         } else {
                             alert = ""
                         }
+
                         data.push([
                             listNumber, 
                             farmList[i].hosts[j].ip, 
                             farmList[i].hosts[j].cost + "SC", 
                             farmList[i].hosts[j].data + "GB",
+                            score,
                             "*", 
                             alert
                         ])
@@ -948,11 +1089,19 @@ function viewContracts() {
 
             // Next the no-farms
             for (var j = 0; j < farmList[0].hosts.length; j++) { // Each host
+                // SiaStats score representation
+                if (farmList[0].hosts[j].siastatsScore > 0) {
+                    var score = '\x1b[42m ' + farmList[0].hosts[j].siastatsScore + ' \x1b[0m'
+                } else {
+                    var score = '\x1b[41m ' + farmList[0].hosts[j].siastatsScore + ' \x1b[0m'
+                }
+
                 data.push([
                     listNumber, 
                     farmList[0].hosts[j].ip, 
                     farmList[0].hosts[j].cost + "SC", 
                     farmList[0].hosts[j].data + "GB",
+                    score,
                     "", 
                     "",
                 ])
@@ -1069,7 +1218,7 @@ function viewHostsCountry(country) {
         hosts = JSON.parse(data);
 
         // Table header
-        data = [["Country code", "Host #", "Host IP", "Storage price per TB/mo", "Upload per TB", "Download per TB", "Collateral ratio", "Rank", "On Filter"]]
+        data = [["Country code", "Host #", "Host IP", "Storage price per TB/mo", "Upload per TB", "Download per TB", "Collateral ratio", "Rank", "SiaStats score", "On Filter"]]
 
         // Iterating the list of hosts
         for (var i = 0; i < hosts.length; i++) {
@@ -1104,6 +1253,12 @@ function viewHostsCountry(country) {
                 } else {
                     var onList = ""
                 }
+                // Siastats score
+                if (hosts[i].siastatsScore > 0) {
+                    var score = '\x1b[42m(' + hosts[i].siastatsScore + ')\x1b[0m'
+                } else {
+                    var score = '\x1b[41m(' + hosts[i].siastatsScore + ')\x1b[0m'
+                }
                 data.push([
                     hosts[i].countryCode,
                     i,
@@ -1113,6 +1268,7 @@ function viewHostsCountry(country) {
                     download,
                     collateralRatio,
                     rank,
+                    score,
                     onList
                 ])
             }
@@ -1140,6 +1296,10 @@ function viewHostsCountry(country) {
                     wrapWord: true
                 },
                 8: {
+                    width: 8,
+                    wrapWord: true
+                },
+                9: {
                     width: 6,
                     wrapWord: true
                 }
@@ -1167,7 +1327,8 @@ function viewHostsCountry(country) {
 
 
 function viewHostsAll(argument3, orderby) {
-    if (argument3 == null || (argument3 == "orderby" && (orderby == "storage" || orderby == "upload" || orderby == "download" || orderby == "collateral"))) {
+    if (argument3 == null || (argument3 == "orderby" && (orderby == "storage" || orderby == "upload" || orderby == "download" 
+        || orderby == "collateral" || orderby == "score"))) {
         
         // Open file
         fs.readFile('databases/hosts.json', 'utf8', function (err, data) { if (!err) { 
@@ -1190,6 +1351,7 @@ function viewHostsAll(argument3, orderby) {
                 } else {
                     var onList = ""
                 }
+
                 hostsTable.push([
                     countryCode,
                     i,
@@ -1199,6 +1361,7 @@ function viewHostsAll(argument3, orderby) {
                     download,
                     collateralRatio,
                     rank,
+                    hosts[i].siastatsScore,
                     onList
                 ])
             }
@@ -1240,7 +1403,26 @@ function viewHostsAll(argument3, orderby) {
                     return 0;
                 }
                 hostsTable.sort(orderTableDownload);
+            } else if (argument4 != null && orderby == "score") {
+                function orderTableScore(a,b) {
+                    if (a[8] < b[8])
+                        return 1;
+                    if (a[8] > b[8])
+                        return -1;
+                    return 0;
+                }
+                hostsTable.sort(orderTableScore);
             }
+
+            // Adjusting color of the scores
+            for (var i = 0; i < hostsTable.length; i++) {
+                if (hostsTable[i][8] > 0) {
+                    hostsTable[i][8] = '\x1b[42m(' + hostsTable[i][8] + ')\x1b[0m'
+                } else {
+                    hostsTable[i][8] = '\x1b[41m(' + hostsTable[i][8] + ')\x1b[0m'
+                }
+            }
+            
 
             // Adding units to the table values
             for (var i = 0; i < hostsTable.length; i++) {
@@ -1253,7 +1435,7 @@ function viewHostsAll(argument3, orderby) {
             }
             
             // Concatenating the header
-            header = [["Country code", "Host #", "Host IP", "Storage price per TB/mo", "Upload per TB", "Download per TB", "Collateral ratio", "Rank", "On Filter"]]
+            header = [["Country code", "Host #", "Host IP", "Storage price per TB/mo", "Upload per TB", "Download per TB", "Collateral ratio", "Rank", "SiaStats Score", "On Filter"]]
             var data = header.concat(hostsTable);
 
             // Render table
@@ -1280,6 +1462,10 @@ function viewHostsAll(argument3, orderby) {
                         wrapWord: true
                     },
                     8: {
+                        width: 8,
+                        wrapWord: true
+                    },
+                    9: {
                         width: 6,
                         wrapWord: true
                     }
@@ -1316,7 +1502,7 @@ function showList() {
 
             // Hosts
             // Table header
-            data = [["Country code", "Filter-ID#", "Host IP", "Storage price per TB/mo", "Upload per TB", "Download per TB", "Collateral ratio", "Rank"]]
+            data = [["Country code", "Filter-ID#", "Host IP", "Storage price per TB/mo", "Upload per TB", "Download per TB", "Collateral ratio", "Rank", "SiaStats score"]]
             var listNumber = 0 // For deducing the Filter-ID
             // Iterating the list of hosts
             for (var i = 0; i < hosts.length; i++) {
@@ -1329,6 +1515,12 @@ function showList() {
                     // This obtuse algorithm converts the storage price from the hostdb to something human-legible. Obtained by test and error
                     var storage = parseInt(hosts[i].storageprice * 400 / 92592592592) + " SC"
                     var rank = hosts.length - i
+                    // Siastats score
+                    if (hosts[i].siastatsScore > 0) {
+                        var score = '\x1b[42m(' + hosts[i].siastatsScore + ')\x1b[0m'
+                    } else {
+                        var score = '\x1b[41m(' + hosts[i].siastatsScore + ')\x1b[0m'
+                    }
                     data.push([
                         hosts[i].countryCode,
                         listID,
@@ -1338,6 +1530,7 @@ function showList() {
                         download,
                         collateralRatio,
                         rank,
+                        score
                     ])
                 }
             }
@@ -1361,6 +1554,14 @@ function showList() {
                     },
                     6: {
                         width: 10,
+                        wrapWord: true
+                    },
+                    6: {
+                        width: 10,
+                        wrapWord: true
+                    },
+                    8: {
+                        width: 8,
                         wrapWord: true
                     },
                 }
@@ -1520,7 +1721,7 @@ function removeList(listID) {
                         hostFound = true
                         hosts[i].onList = false
                         console.log("The host " + hosts[i].netaddress + " has been removed from the Filter")
-                        console.log("If you want to remove additional hosts, run 'list show' again, as Filter-IDs might have changed")
+                        console.log("If you want to remove additional hosts, run 'decentralizer filter' again, as Filter-IDs might have changed")
                     }
                     listScannedCount++
                 }
@@ -1655,6 +1856,7 @@ function modeList(newMode) {
 
 
 function applyList() {
+    if (debugMode == true) {console.log("// DEBUG - applyList(): Opening files")}
 
     fs.readFile('databases/hosts.json', 'utf8', function (err, data) { if (!err) { 
         hosts = JSON.parse(data)
@@ -1673,6 +1875,7 @@ function applyList() {
                     applyList2(hosts, farms, settings, newMode, contracts)
 
                 } else {
+                    if (debugMode == true) {console.log("// DEBUG - No contracts")}
                     // There is just no contracts file, move one with an empty array
                     var contracts = []
                     applyList2(hosts, farms, settings, newMode, contracts)
@@ -1680,21 +1883,25 @@ function applyList() {
             
             } else {
                 console.log('ERROR - The settings file could not be fetched. Run the "decentralizer scan" command first')
+                if (debugMode == true) {console.log("// DEBUG - Error: " + err)}
                 console.log()
             }});
 
         } else {
             console.log('ERROR - Databases are corrupted. Please, download again Decentralizer from https://keops.cc/decentralizer')
+            if (debugMode == true) {console.log("// DEBUG - Error: " + err)}
             console.log()
         }})
     } else {
         console.log('ERROR - The hosts file could not be fetched. Run the "decentralizer scan" command first')
+        if (debugMode == true) {console.log("// DEBUG - Error: " + err)}
         console.log()
     }})
 }
 
 
 function applyList2(hosts, farms, settings, newMode, contracts) {
+    if (debugMode == true) {console.log("// DEBUG - applyList2() function")}
     farmsFlagged = 0
     for (var i = 0; i < farms.length; i++) {
         if (farms[i].alert == true) {farmsFlagged++}
@@ -1736,6 +1943,7 @@ function applyList2(hosts, farms, settings, newMode, contracts) {
 
         // Saving the corrected hosts file
         fs.writeFileSync('databases/hosts.json', JSON.stringify(hosts))
+        if (debugMode == true) {console.log("// DEBUG - List corrected. Saving")}
 
         // Preparing the array
         var list = []
@@ -1970,7 +2178,7 @@ function addVersion(argument4) {
             
                 var addingHosts = 0
                 for (var i = 0; i < hosts.length; i++) {
-                    if (hosts[i].version == argument4) {
+                    if (hosts[i].version == argument4 && hosts[i].onList != true) {
                         if (settings.listMode == "disable" || settings.listMode == "blacklist") {
                             var alert = false
                         } else if (settings.listMode == "whitelist") {
@@ -2009,6 +2217,129 @@ function addVersion(argument4) {
 }
 
 
+
+function addScore(argument4) {
+    // Adds the hosts with the specified SiaStats score to the filter
+    if (argument4 >= 0 && argument4 <= 10) { // The score has to be from 0 to 10
+        fs.readFile('databases/hosts.json', 'utf8', function (err, data) { if (!err) { 
+            hosts = JSON.parse(data);
+            fs.readFile('databases/farms_definition.json', 'utf8', function (err, data) { if (!err) { 
+                farms = JSON.parse(data);
+                fs.readFile('databases/settings.json', 'utf8', function (err, data) { if (!err) { 
+                    settings = JSON.parse(data);
+
+                    var addingHosts = 0
+                    for (var i = 0; i < hosts.length; i++) {
+                        if (hosts[i].siastatsScore == argument4 && hosts[i].onList != true) {
+                            if (settings.listMode == "disable" || settings.listMode == "blacklist") {
+                                var alert = false
+                            } else if (settings.listMode == "whitelist") {
+                                // We don't want to add an alerted host to a whitelist
+                                var alert = checkAlertOnHost(hosts[i].publickeystring, hosts[i].netaddress, farms) // Checking for alerts
+                            }
+                            if (alert == false) {
+                                addingHosts++
+                                hosts[i].onList = true
+                            }
+                        }
+                    }
+                    if (addingHosts > 0) {
+                        // Saving
+                        fs.writeFileSync('databases/hosts.json', JSON.stringify(hosts))
+                        // Adjusting color of the score
+                        if (argument4 > 0) {
+                            argument4 = '\x1b[42m(' + argument4 + ')\x1b[0m'
+                        } else {
+                            argument4 = '\x1b[41m(' + argument4 + ')\x1b[0m'
+                        }
+                        console.log(addingHosts + " hosts with the SiaStats score " + argument4 + " have been added to the Filter")
+                        console.log()
+                    } else {
+                        console.log('ERROR - No host added with this SiaStats score')
+                        console.log()
+                    }
+
+                } else {
+                    console.log('ERROR - The settings file could not be fetched. Run the "decentralizer scan" command first')
+                    console.log()
+                }});
+            } else {
+                console.log('ERROR - The farms definition file could not be fetched. Run the "decentralizer scan" command first')
+                console.log()
+            }});
+        } else {
+            console.log('ERROR - The hosts file could not be fetched. Run the "decentralizer scan" command first')
+            console.log()
+        }});
+    } else {
+        console.log('ERROR - The SiaStats performance score needs to be a number between 0 and 10')
+        console.log()
+    }
+}
+
+
+
+function removeScore(argument4) {
+    if (argument4 >= 0 && argument4 <= 10) { // The score has to be from 0 to 10
+        fs.readFile('databases/hosts.json', 'utf8', function (err, data) { if (!err) { 
+            hosts = JSON.parse(data);
+            fs.readFile('databases/farms_definition.json', 'utf8', function (err, data) { if (!err) { 
+                farms = JSON.parse(data);
+                fs.readFile('databases/settings.json', 'utf8', function (err, data) { if (!err) { 
+                    settings = JSON.parse(data);
+
+                    var removingHosts = 0
+                    for (var i = 0; i < hosts.length; i++) {
+                        if (hosts[i].siastatsScore == argument4 && hosts[i].onList == true) {
+                            if (settings.listMode == "disable" || settings.listMode == "whitelist") {
+                                var alert = false
+                            } else if (settings.listMode == "blacklist") {
+                                // We don't want to remove an alerted host from a blacklist
+                                var alert = checkAlertOnHost(hosts[i].publickeystring, hosts[i].netaddress, farms) // Checking for alerts
+                            }
+                            if (alert == false) {
+                                removingHosts++
+                                hosts[i].onList = false
+                            }
+                        }
+                    }
+                    if (removingHosts > 0) {
+                        // Saving
+                        fs.writeFileSync('databases/hosts.json', JSON.stringify(hosts))
+                        // Adjusting color of the score
+                        if (argument4 > 0) {
+                            argument4 = '\x1b[42m(' + argument4 + ')\x1b[0m'
+                        } else {
+                            argument4 = '\x1b[41m(' + argument4 + ')\x1b[0m'
+                        }
+                        console.log(removingHosts + " hosts with the SiaStats score " + argument4 + " have been removed from the Filter")
+                        console.log()
+                    } else {
+                        console.log('ERROR - No host currently on the Filter with this SiaStats score')
+                        console.log()
+                    }
+                    /////////////////////////////////////////////////////////////////////////////
+
+                } else {
+                    console.log('ERROR - The settings file could not be fetched. Run the "decentralizer scan" command first')
+                    console.log()
+                }});
+            } else {
+                console.log('ERROR - The farms definition file could not be fetched. Run the "decentralizer scan" command first')
+                console.log()
+            }});
+        } else {
+            console.log('ERROR - The hosts file could not be fetched. Run the "decentralizer scan" command first')
+            console.log()
+        }});
+    } else {
+        console.log('ERROR - The SiaStats performance score needs to be a number between 0 and 10')
+        console.log()
+    }
+}
+
+
+
 function checkAlertOnHost(pubkey, ip, farms) {
     // Checks if the host to be added has an alert on it
     var alert = false // By default
@@ -2029,6 +2360,7 @@ function checkAlertOnHost(pubkey, ip, farms) {
 
 function siaFilter(list, settings) {
     // Connects to Sia and applies the List to the hosts Filter of Sia
+    if (debugMode == true) {console.log("// DEBUG - siaFilter(). Applying the filter to Sia")}
     
     var hostsList = []
     for (var i = 0; i < list.length; i++) {
@@ -2049,9 +2381,167 @@ function siaFilter(list, settings) {
     })
     .catch((err) => {
         console.log("ERROR - Filter could not be applied. Is Sia software running and updated to 1.4.0 or onwards?\n")
-        console.log(err)
+        if (debugMode == true) {console.log("// DEBUG - Error: " + err)}
         process.exit();
     })
+}
+
+
+function combinatorialAdd(argumentsArray) {
+    // Allows to add hosts to a list with up to 3 different criteria, on any order
+    
+    var country = null
+    var version = null
+    var score = null
+    var correctSyntax = true
+
+    for (var i = 0; i < argumentsArray.length; i++) { // For each of the 3 arguments
+        // We try to parse the argument, in case it is an array
+        //console.log("\n" + argumentsArray[i])
+        if (argumentsArray[i].slice(0,1) == "[" || argumentsArray[i].slice(0,1) == "(") { // Checking if it is an array
+            var thisArgument = argumentsArray[i].slice(1, argumentsArray[i].length-1)
+            thisArgument = thisArgument.split(",")
+            var argumentSample = thisArgument[0]
+        } else {
+            var thisArgument = [argumentsArray[i]]
+            var argumentSample = argumentsArray[i]
+        }
+        
+        if (argumentSample.length == 2 && argumentSample.match(/[a-z]/i)) {
+            // Detects if it is a country
+            country = thisArgument
+        } else if (parseInt(argumentSample) >= 0 && parseInt(argumentSample) <= 10 && argumentSample.match(/[0-9]/gi) 
+            && argumentSample.length == 2 && argumentSample.indexOf(".") < 0) {
+            // Detects if it is a score
+            score = thisArgument
+        } else if (argumentSample.indexOf(".") > 0) {
+            // Detects if it is a version
+            version = thisArgument
+        } else {
+            correctSyntax = false
+        }      
+    }
+
+    // Presents the choice to the user, if syntax was correct
+    if (correctSyntax == true) {
+        console.log("Combinatorial add command. Host requirements:")
+        if (country != null) {console.log("* Countries: " + country)}
+        if (version != null) {console.log("* Versions: " + version)}
+        if (score != null) {console.log("* Score: " + score)}
+        console.log()
+        
+        combinatorialAdd2(country, version, score)
+    } else {
+        console.log("ERROR - Incorrect syntax for combinatorial adding to the list")
+        console.log("Use `./decentralizer filter add [country] [version] [score]`. You can place the 3 parameters on any order, or just use 2 of them")
+        console.log("If more than one country, version or score, place them inside brackets, separated by commas, and no spaces between them")
+        console.log("Example: `./decentralizer filter add EU [10,9,8,7] [1.4.1,1.4.0]`")
+        console.log()
+    } 
+}
+
+
+function combinatorialAdd2(country, version, score) {
+    // Execurtes the combinatorial add command
+    fs.readFile('databases/hosts.json', 'utf8', function (err, data) { if (!err) { 
+        hosts = JSON.parse(data);
+        fs.readFile('databases/farms_definition.json', 'utf8', function (err, data) { if (!err) { 
+            farms = JSON.parse(data);
+            fs.readFile('databases/settings.json', 'utf8', function (err, data) { if (!err) { 
+                settings = JSON.parse(data);
+
+                var addingHosts = 0
+                for (var i = 0; i < hosts.length; i++) { // Iterating hosts
+
+                    // Countries
+                    var countryOk = false
+                    if (country != null) {
+                        for (var j = 0; j < country.length; j++) {
+                            country[j] = country[j].toUpperCase()
+                            if (country[j] == "XX") {country = null} // Transform "XX" into null for not geolocated hosts
+                            if (country[j] == "EU") {
+                                var c = hosts[i].countryCode
+                                if (c == "BE" || c == "BG" || c == "CZ" || c == "DK" || c == "DE" || c == "EE" || c == "IE" || c == "EL" || c == "ES" || c == "FR" ||
+                                    c == "HR" || c == "IT" || c == "CY" || c == "LV" || c == "LT" || c == "LU" || c == "HU" || c == "MT" || c == "NL" || c == "AT" ||
+                                    c == "PL" || c == "PT" || c == "RO" || c == "SI" || c == "SK" || c == "FI" || c == "SE" || c == "GB" || c == "LI" || c == "IS" ||
+                                    c == "NO") {
+                                        countryOk = true
+                                }
+                            } else {
+                                if (hosts[i].countryCode == country[j]) {
+                                    countryOk = true
+                                }
+                            }         
+                        }
+                    } else {
+                        countryOk = true // The user did not asked for countries
+                    }
+                    
+
+                    // Versions
+                    var versionOk = false
+                    if (version != null) {
+                        for (var j = 0; j < version.length; j++) {
+                            if (hosts[i].version == version[j] && hosts[i].onList != true) {
+                                versionOk = true
+                            }
+                        }
+                    } else {
+                        scoreOk = true // The user did not asked for versions
+                    }
+                    
+                    // Scores
+                    var scoreOk = false
+                    if (score != null) {
+                        for (var j = 0; j < score.length; j++) {
+                            if (hosts[i].siastatsScore == score[j] && hosts[i].onList != true) {
+                                scoreOk = true
+                            }
+                        }
+                    } else {
+                        scoreOk = true // The user did not asked for scores
+                    }
+                    
+                    // Security check, only if the 3 params are positive
+                    if (countryOk == true && versionOk == true && scoreOk == true) {
+                        if (settings.listMode == "disable" || settings.listMode == "blacklist") {
+                            var alert = false
+                        } else if (settings.listMode == "whitelist") {
+                            // We don't want to add an alerted host to a whitelist
+                            var alert = checkAlertOnHost(hosts[i].publickeystring, hosts[i].netaddress, farms) // Checking for alerts
+                        }
+                        if (alert == false) {
+                            if (hosts[i].onList == false) { // Add to count only if it wasn not yet on the list
+                                addingHosts++
+                            }
+                            hosts[i].onList = true
+                        }
+                    }
+                    // Next host in loop
+                }
+
+                if (addingHosts > 0) {
+                    // Saving
+                    fs.writeFileSync('databases/hosts.json', JSON.stringify(hosts))
+                    console.log(addingHosts + " new hosts added to the Filter with these parameters")
+                    console.log()
+                } else {
+                    console.log('ERROR - No host added with these parameters')
+                    console.log()
+                }
+
+            } else {
+                console.log('ERROR - The settings file could not be fetched. Run the "decentralizer scan" command first')
+                console.log()
+            }});
+        } else {
+            console.log('ERROR - The farms definition file could not be fetched. Run the "decentralizer scan" command first')
+            console.log()
+        }});
+    } else {
+        console.log('ERROR - The hosts file could not be fetched. Run the "decentralizer scan" command first')
+        console.log()
+    }});
 }
 
 

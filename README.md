@@ -41,20 +41,27 @@ After canceling contracts, your Sia client will form replacement contracts with 
 
 ### Hosts filter commands
 
+* `./decentralize filter help`: Shows a walkthrough guide about setting up a Filter
 * `./decentralizer view hosts countries`: Shows the list of country codes of hosts and the number of hosts per country
 * `./decentralizer view hosts versions`: Shows the list of version numbers hosts are using
 * `./decentralizer view hosts [country code]` Shows the list of hosts in the specified country
-* `./decentralizer view hosts orderby [storage/upload/download/collateral]`: Shows a list of all the hosts, ordered by the selected parameter
+* `./decentralizer view hosts orderby [storage/upload/download/collateral/score]`: Shows a list of all the hosts, ordered by the selected parameter. `[score]` will use SiaStats performance scores
 * `./decentralizer filter`: Shows your Filter mode (blacklist, whitelist, disable) and the hosts included on it
 * `./decentralizer filter add [hostID / country code]`: Adds the desired HostID or all the hosts in a country to the Filter
 * `./decentralizer filter add version [version]`: Adds to the filter all the hosts using the selected Sia version (e.g. "1.4.0")
+* `./decentralizer filter add score [score]`: Adds to the filter all the hosts with an specific SiaStats performance score (e.g. "9")
 * `./decentralizer filter remove [y]`: Removes the host with FilterID 'y' from the Filter (check the ID with 'filter show') 
+* `./decentralizer filter remove score [score]`: Removes from the filter any host with the specified SiaStats performance score (e.g. "9")
 * `./decentralizer filter mode [disable/whitelist/blacklist]`: Changes the mode of the Filter that will be applied to the list of hosts. In a whitelist, only the selected hosts will be candidates in Sia to form contracts with. In blacklist, the hosts in the Filter will be excluded by Sia.
 * `./decentralizer filter clear`: Removes all the hosts from the Filter, and sets its mode to 'disable'")
 * `./decentralizer filter farms`: On whitelist, removes the hosts in farms from the Filter. On blacklist, adds them to the Filter. One of the hosts of each farm will be kept aside, in both cases, ensuring the farm can still be used, but no more than one contract will be formed with it.
 * `./decentralizer filter apply`: Applies the Filter of hosts and the Filter mode (whitelist/blacklist/disable) to Sia")
 
 For safety reasons, hosts flagged as unsafe by SiaStats can't be included on a whitelist, and will be automatically added on the blacklist mode.
+
+### Debug mode
+
+* Use the flag `-d` or `--debug`. Example: `./decentralizer -d scan`
 
 ## Usage of the non-compiled script
 
@@ -72,20 +79,31 @@ For safety reasons, hosts flagged as unsafe by SiaStats can't be included on a w
 
 ## Changes log
 
+### v1.1.0
+
+* Added the SiaStats performance scores to every table. Endpoints for adding and removing the hosts of specific scores have been added too
+* New filter add command with combinatorial criteria
+* New Filter walkthrough guide command: `./decentralizer filter help`
+* Added a debug mode (start with the `-d` flag, followed by the command, e.g. `./decentralizer -d scan`)
+
 ### v1.0.1
+
 * Corrected a bug by which the list of hosts was not really arranged by the host rank
 
 ### v1.0.0
+
 * Full rewrite of the code logic: now geolocation of all the hosts is primarly obtained from SiaStats and additional inquires to geolocation databases is performed locally in absence of data from SiaStats.
 * All contracts can be now individually cancelled (not just farms).
 * Decentralizer now allows to create and apply a hosts filter to Sia. Build a filter by adding hosts manually, according to their country, Sia version or pricing.
 * New databases structure allows easy inter-operability between multiple machines (even those using the GUI version) just by moving the `databases` folder.
 
 ### v0.2.0
+
 * Decentralizer connects to SiaStats to obtain additional farms information.
 * Unsafe hosts hosts detected and alerted thanks to SiaStats databases.
 
 ### v0.1.0
+
 * Initial release.
 
 ## License

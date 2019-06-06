@@ -21,12 +21,18 @@ if (argument1 == "-debug" || argument1 == "--debug" || argument1 == "-d") {
     var argument2 = process.argv[4]
     var argument3 = process.argv[5]
     var argument4 = process.argv[6]
+    var argument5 = process.argv[7]
+    var argument6 = process.argv[8]
+    var argument7 = process.argv[9]
 } else {
     // Normal mode
     var debugMode = false
     var argument2 = process.argv[3]
     var argument3 = process.argv[4]
     var argument4 = process.argv[5]
+    var argument5 = process.argv[6]
+    var argument6 = process.argv[7]
+    var argument7 = process.argv[8]
 }
 
 
@@ -88,6 +94,15 @@ if (argument1 == "scan") {
     help()
 } else if (argument1 == "filter" && argument2 == null) {
     showList()
+} else if (argument1 == "filter" && argument2 == "help") {
+    filterHelp()
+} else if (argument4 == "and" || argument4 == "AND" || argument6 == "and" || argument6 == "AND") {
+    var argumentsArray = [argument3.toString(), argument5.toString()]
+    // Adding additional arguments, if they exist
+    if (argument7 != null) {
+        argumentsArray.push(argument7.toString())
+    }
+    combinatorialAdd(argumentsArray)
 } else if (argument1 == "filter" && argument2 == "add" && argument3 != null && argument3 != "version" && argument3 != "score") {
     addList(argument3)
 } else if (argument1 == "filter" && argument2 == "add" && argument3 == "version" && argument4 != null) {
@@ -112,28 +127,88 @@ if (argument1 == "scan") {
 }
 
 function help() {
+    console.log()
+    console.log('\x1b[47m\x1b[30m%s\x1b[0m', " General commands ")
+    console.log("   * decentralizer help --> Shows all the Decentralizer commands")
     console.log("   * decentralizer scan --> Analyzes contracts and shows hosts belonging to hosting farms")
     console.log("   * decentralizer remove [x] --> Removes the host numbered 'x' (refer to the 'decentralizer view contracts') from your contracts")
     console.log("   * decentralizer remove auto --> Removes all but one of the duplicate hosts in a hosting farm")
     console.log("   * decentralizer view farms --> Shows the list of farms obtained on the last scan")
     console.log("   * decentralizer view contracts --> Shows the full list of contracts, obtained on the last scan")
+    console.log('\n\x1b[47m\x1b[30m%s\x1b[0m', " Filter walkthrough ")
+    console.log("   * decentralizer filter help --> Shows a walkthrough guide for setting up a Filter (recommended)")
+    console.log('\n\x1b[47m\x1b[30m%s\x1b[0m', " Filter commands ")
+    console.log("   * decentralizer filter --> Shows your Filter mode (blacklist, whitelist) and the hosts included on it")
     console.log("   * decentralizer view hosts --> Shows all hosts, ordered by rank")
     console.log("   * decentralizer view hosts countries --> Shows the list of country codes of hosts")
     console.log("   * decentralizer view hosts versions --> Shows the list of version numbers of hosts")
     console.log("   * decentralizer view hosts [country code] --> Shows the hosts in the specified country")
     console.log("   * decentralizer view hosts orderby [storage/upload/download/collateral/score] --> Shows all hosts, ordered by the indicated parameter")
-    console.log("   * decentralizer filter --> Shows your Filter mode (blacklist, whitelist) and the hosts included on it")
     console.log("   * decentralizer filter add [hostID / country code] --> Adds the desired HostID or all the hosts in a country to the Filter")
     console.log("   * decentralizer filter add version [version] --> Adds to the filter all the hosts using the selected Sia version (e.g. 1.4.0)")
-    console.log("   * decentralizer filter add score [score] --> Adds to the filter all the hosts with an specific SiaStats performance score (e.g. 9")
+    console.log("   * decentralizer filter add score [score] --> Adds to the filter all the hosts with an specific SiaStats performance score (e.g. 9)")
+    console.log("   * decentralizer filter add [countries] AND [versions] AND [scores] --> Adds to the filter all the hosts the meet the combination of any of")
+    console.log("     these parameters. ('filter help' for more information)")
     console.log("   * decentralizer filter remove [y] --> Removes the host with FilterID 'y' (check it with 'filter show') from the Filter")
-    console.log("   * decentralizer filter remove score [score] --> Removes from the filter any host with the specified SiaStats performance score (e.g. 9")
+    console.log("   * decentralizer filter remove score [score] --> Removes from the filter any host with the specified SiaStats performance score (e.g. 9)")
     console.log("   * decentralizer filter mode [disable/whitelist/blacklist] --> Changes the mode of the Filter that will be applied to the list of hosts")
     console.log("   * decentralizer filter clear --> Removes all the hosts from the Filter, and sets its mode to 'disable'")
     console.log("   * decentralizer filter farms --> On whitelist, removes hosts in farms from the Filter. On blacklist, adds them to the Filter")
     console.log("   * decentralizer filter apply --> Applies the Filter of hosts and the Filter mode (white/blacklist/disable) to Sia")
-    console.log("   * decentralizer help --> Shows again all the possible commands")
     console.log()
+}
+
+function filterHelp() {
+    console.log("This is a short walkthrough of the process of setting up a Filter of hosts for Sia")
+    console.log("It assumes you are using a clean Filter. The Filter can be cleared at any moment with the command 'decentralizer filter clear'")
+    
+    console.log('\n\x1b[47m\x1b[30m%s\x1b[0m', " 1 - Set the filter type ")
+    console.log("\nSet the filter mode with the command './decentralizer filter mode [mode]'")
+    // Table with modes
+    var data = [
+        ["[mode]", "Result"],
+        ["disable", "Disables the filter and removes all the hosts from it. Sia will use any host on its database"],
+        ["whitelist", "Only the hosts included on the Filter will be used by Sia to form contracts with"],
+        ["blacklist", "The hosts included in the Filter will be avoided by Sia"]
+    ]
+    output = table.table(data);
+    console.log(output);
+
+    console.log('\n\x1b[47m\x1b[30m%s\x1b[0m', " 2 - (Optional) Check the hosts available for your preferences ")
+    console.log('\nYou can check the list of hosts available, their settings and characteristics, with the following commands:')
+    console.log("   * Display all the hosts, ordered by their Sia rank on your hostdb, with the command 'decentralizer view hosts'")
+    console.log("   * Display all the hosts, ordered by the criteria of your choice with the command 'decentralizer view hosts orderby [parameter]'")
+    console.log("     'parameter' can be: 'storage' (price), 'upload' (price), 'download' (price), 'collateral' (price), 'score' (SiaStats performance score)")
+    console.log("   * You can check the number of hosts available on each country or usuing each Sia software version with the command")
+    console.log("     'decentralizer view hosts [countries/versions]'")
+    console.log("   * Check all the hosts available on an specific country with 'decentralizer view hosts [country code]'. Use 2-character interantional codes.")
+    console.log("     'EU' can be used, representing the European Economic Area")
+
+    console.log('\n\n\x1b[47m\x1b[30m%s\x1b[0m', " 3 - Add hosts to the filter ")
+    console.log("\nHosts can be added to the filter with several methods:")
+    console.log("   * Add a single host manually with its hostID (obtain it from the lists shown on the previous step): use `decentralizer filter add [hostID]`")
+    console.log("   * Add all the hosts in a country with the command: `decentralizer filter add [country code]` (use 2-character interantional codes)")
+    console.log("   * Add all the hosts using an specific Sia software version: `decentralizer filter add version [version]")
+    console.log("     Example: `decentralizer filter add 1.4.0`")
+    console.log("   * Add all the hosts with an specific SiaStats performance score: `decentralizer filter add score [score]")
+    console.log("   * Add hosts with a combination of country, version and score: `decentralizer filter add [countries] AND [versions] AND [scores]")
+    console.log("     You can use either two or 3 criteria. Countries, versions and scores can be indicated on any order. For more than one element on each criteria,")
+    console.log("     place them inside brackets, separated by commas and no spaces in between.")
+    console.log("     Some examples: `decentralizer filter add [US,CA,MX] AND 1.4.0 AND [10,9,8,7]`; `decentralizer filter add [1.4.1,1.4.0] AND EU`")
+
+    console.log('\n\n\x1b[47m\x1b[30m%s\x1b[0m', " 4 - Remove hosts from the filter to customize further ")
+    console.log("\n   * Check the hosts currently on your filter with `decentralizer filter`")
+    console.log("   * Remove individual hosts with `decentralizer filter remove [FilterId]` (get FilterId from the previous command)")
+    console.log("   * Remove all the hosts with an specific SiaStats performance score: `decentralizer filter remove score [score]")
+
+    console.log('\n\n\x1b[47m\x1b[30m%s\x1b[0m', " 5 - (Optional) Avoid hosting farms on your hosts list")
+    console.log("\nYou can avoid forming more than one contract with a single hosting farm with the command `decentralizer filter farms`. If you are building a")
+    console.log("whitelist, farms will be removed. If it is a blacklist, all farms will be included. Only one host per farm will be kept for forming contracts")
+    
+    console.log('\n\n\x1b[47m\x1b[30m%s\x1b[0m', " 6 - Check and apply the Filter to Sia")
+    console.log("\n   * Check the hosts currently on your filter with `decentralizer filter`")
+    console.log("   * Apply the filter to the Sia software with the command `decentralizer filter apply`. Changes on the filter done with the previous commands are")
+    console.log("     only made final with this command\n")
 }
 
 
@@ -2309,6 +2384,164 @@ function siaFilter(list, settings) {
         if (debugMode == true) {console.log("// DEBUG - Error: " + err)}
         process.exit();
     })
+}
+
+
+function combinatorialAdd(argumentsArray) {
+    // Allows to add hosts to a list with up to 3 different criteria, on any order
+    
+    var country = null
+    var version = null
+    var score = null
+    var correctSyntax = true
+
+    for (var i = 0; i < argumentsArray.length; i++) { // For each of the 3 arguments
+        // We try to parse the argument, in case it is an array
+        //console.log("\n" + argumentsArray[i])
+        if (argumentsArray[i].slice(0,1) == "[" || argumentsArray[i].slice(0,1) == "(") { // Checking if it is an array
+            var thisArgument = argumentsArray[i].slice(1, argumentsArray[i].length-1)
+            thisArgument = thisArgument.split(",")
+            var argumentSample = thisArgument[0]
+        } else {
+            var thisArgument = [argumentsArray[i]]
+            var argumentSample = argumentsArray[i]
+        }
+        
+        if (argumentSample.length == 2 && argumentSample.match(/[a-z]/i)) {
+            // Detects if it is a country
+            country = thisArgument
+        } else if (parseInt(argumentSample) >= 0 && parseInt(argumentSample) <= 10 && argumentSample.match(/[0-9]/gi) 
+            && argumentSample.length == 2 && argumentSample.indexOf(".") < 0) {
+            // Detects if it is a score
+            score = thisArgument
+        } else if (argumentSample.indexOf(".") > 0) {
+            // Detects if it is a version
+            version = thisArgument
+        } else {
+            correctSyntax = false
+        }      
+    }
+
+    // Presents the choice to the user, if syntax was correct
+    if (correctSyntax == true) {
+        console.log("Combinatorial add command. Host requirements:")
+        if (country != null) {console.log("* Countries: " + country)}
+        if (version != null) {console.log("* Versions: " + version)}
+        if (score != null) {console.log("* Score: " + score)}
+        console.log()
+        
+        combinatorialAdd2(country, version, score)
+    } else {
+        console.log("ERROR - Incorrect syntax for combinatorial adding to the list")
+        console.log("Use `./decentralizer filter add [country] [version] [score]`. You can place the 3 parameters on any order, or just use 2 of them")
+        console.log("If more than one country, version or score, place them inside brackets, separated by commas, and no spaces between them")
+        console.log("Example: `./decentralizer filter add EU [10,9,8,7] [1.4.1,1.4.0]`")
+        console.log()
+    } 
+}
+
+
+function combinatorialAdd2(country, version, score) {
+    // Execurtes the combinatorial add command
+    fs.readFile('databases/hosts.json', 'utf8', function (err, data) { if (!err) { 
+        hosts = JSON.parse(data);
+        fs.readFile('databases/farms_definition.json', 'utf8', function (err, data) { if (!err) { 
+            farms = JSON.parse(data);
+            fs.readFile('databases/settings.json', 'utf8', function (err, data) { if (!err) { 
+                settings = JSON.parse(data);
+
+                var addingHosts = 0
+                for (var i = 0; i < hosts.length; i++) { // Iterating hosts
+
+                    // Countries
+                    var countryOk = false
+                    if (country != null) {
+                        for (var j = 0; j < country.length; j++) {
+                            country[j] = country[j].toUpperCase()
+                            if (country[j] == "XX") {country = null} // Transform "XX" into null for not geolocated hosts
+                            if (country[j] == "EU") {
+                                var c = hosts[i].countryCode
+                                if (c == "BE" || c == "BG" || c == "CZ" || c == "DK" || c == "DE" || c == "EE" || c == "IE" || c == "EL" || c == "ES" || c == "FR" ||
+                                    c == "HR" || c == "IT" || c == "CY" || c == "LV" || c == "LT" || c == "LU" || c == "HU" || c == "MT" || c == "NL" || c == "AT" ||
+                                    c == "PL" || c == "PT" || c == "RO" || c == "SI" || c == "SK" || c == "FI" || c == "SE" || c == "GB" || c == "LI" || c == "IS" ||
+                                    c == "NO") {
+                                        countryOk = true
+                                }
+                            } else {
+                                if (hosts[i].countryCode == country[j]) {
+                                    countryOk = true
+                                }
+                            }         
+                        }
+                    } else {
+                        countryOk = true // The user did not asked for countries
+                    }
+                    
+
+                    // Versions
+                    var versionOk = false
+                    if (version != null) {
+                        for (var j = 0; j < version.length; j++) {
+                            if (hosts[i].version == version[j] && hosts[i].onList != true) {
+                                versionOk = true
+                            }
+                        }
+                    } else {
+                        scoreOk = true // The user did not asked for versions
+                    }
+                    
+                    // Scores
+                    var scoreOk = false
+                    if (score != null) {
+                        for (var j = 0; j < score.length; j++) {
+                            if (hosts[i].siastatsScore == score[j] && hosts[i].onList != true) {
+                                scoreOk = true
+                            }
+                        }
+                    } else {
+                        scoreOk = true // The user did not asked for scores
+                    }
+                    
+                    // Security check, only if the 3 params are positive
+                    if (countryOk == true && versionOk == true && scoreOk == true) {
+                        if (settings.listMode == "disable" || settings.listMode == "blacklist") {
+                            var alert = false
+                        } else if (settings.listMode == "whitelist") {
+                            // We don't want to add an alerted host to a whitelist
+                            var alert = checkAlertOnHost(hosts[i].publickeystring, hosts[i].netaddress, farms) // Checking for alerts
+                        }
+                        if (alert == false) {
+                            if (hosts[i].onList == false) { // Add to count only if it wasn not yet on the list
+                                addingHosts++
+                            }
+                            hosts[i].onList = true
+                        }
+                    }
+                    // Next host in loop
+                }
+
+                if (addingHosts > 0) {
+                    // Saving
+                    fs.writeFileSync('databases/hosts.json', JSON.stringify(hosts))
+                    console.log(addingHosts + " new hosts added to the Filter with these parameters")
+                    console.log()
+                } else {
+                    console.log('ERROR - No host added with these parameters')
+                    console.log()
+                }
+
+            } else {
+                console.log('ERROR - The settings file could not be fetched. Run the "decentralizer scan" command first')
+                console.log()
+            }});
+        } else {
+            console.log('ERROR - The farms definition file could not be fetched. Run the "decentralizer scan" command first')
+            console.log()
+        }});
+    } else {
+        console.log('ERROR - The hosts file could not be fetched. Run the "decentralizer scan" command first')
+        console.log()
+    }});
 }
 
 

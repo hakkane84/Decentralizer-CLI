@@ -41,6 +41,7 @@ After canceling contracts, your Sia client will form replacement contracts with 
 
 ### Hosts filter commands
 
+* `./decentralize filter help`: Shows a walkthrough guide about setting up a Filter
 * `./decentralizer view hosts countries`: Shows the list of country codes of hosts and the number of hosts per country
 * `./decentralizer view hosts versions`: Shows the list of version numbers hosts are using
 * `./decentralizer view hosts [country code]` Shows the list of hosts in the specified country
@@ -81,6 +82,8 @@ For safety reasons, hosts flagged as unsafe by SiaStats can't be included on a w
 ### v1.1.0
 
 * Added the SiaStats performance scores to every table. Endpoints for adding and removing the hosts of specific scores have been added too
+* New filter add command with combinatorial criteria
+* New Filter walkthrough guide command: `./decentralizer filter help`
 * Added a debug mode (start with the `-d` flag, followed by the command, e.g. `./decentralizer -d scan`)
 
 ### v1.0.1

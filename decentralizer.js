@@ -308,9 +308,11 @@ function siaHosts(siastatsGeoloc, siastatsFarms) {
             // Filtering only the active and accepting contracts. If I was using the /hostdb/active, it would show less hosts after applying a filter
             var active = []
             for (var i = 0; i < allHosts.length; i++) {
-                if (allHosts[i].scanhistory[allHosts[i].scanhistory.length-1].success == true
-                    && allHosts[i].acceptingcontracts == true) {
-                    active.push(allHosts[i])
+                if (allHosts[i].scanhistory != null) { // It has already one scan
+                    if (allHosts[i].scanhistory[allHosts[i].scanhistory.length-1].success == true
+                        && allHosts[i].acceptingcontracts == true) {
+                        active.push(allHosts[i])
+                    }
                 }
             }
             var hostNum = 0

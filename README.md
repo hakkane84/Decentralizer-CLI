@@ -79,7 +79,7 @@ For safety reasons, hosts flagged as unsafe by SiaStats can't be included on a w
 
 ## Changes log
 
-### v1.1.0
+### v1.1.1
 
 * Corrected compatibility of the databases format with Decentralizer-GUI (they can be switched back and forth between both versions again)
 

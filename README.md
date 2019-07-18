@@ -81,6 +81,10 @@ For safety reasons, hosts flagged as unsafe by SiaStats can't be included on a w
 
 ### v1.1.0
 
+* Corrected compatibility of the databases format with Decentralizer-GUI (they can be switched back and forth between both versions again)
+
+### v1.1.0
+
 * Added the SiaStats performance scores to every table. Endpoints for adding and removing the hosts of specific scores have been added too
 * New filter add command with combinatorial criteria
 * New Filter walkthrough guide command: `./decentralizer filter help`

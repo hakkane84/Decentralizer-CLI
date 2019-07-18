@@ -38,9 +38,9 @@ if (argument1 == "-debug" || argument1 == "--debug" || argument1 == "-d") {
 
 console.log()
 if (debugMode == false) {
-    console.log('\x1b[44m%s\x1b[0m', "*** KEOPS DECENTRALIZER v1.1.0 ***")
+    console.log('\x1b[44m%s\x1b[0m', "*** KEOPS DECENTRALIZER v1.1.1 ***")
 } else {
-    console.log('\x1b[44m%s\x1b[0m', "*** KEOPS DECENTRALIZER v1.1.0 (debug mode) ***")
+    console.log('\x1b[44m%s\x1b[0m', "*** KEOPS DECENTRALIZER v1.1.1 (debug mode) ***")
 }
 console.log()
 
@@ -224,9 +224,7 @@ function openSettingsFile() {
 
         var settings = JSON.parse(data)
         settings.lastsync = timestamp
-        fs.writeFileSync('databases/settings.json', JSON.stringify(settings))
-
-        siastatsGeolocFile()
+        geolocUser(settings)
     } else {
         // Initialize a settings file here
         if (debugMode == true) {console.log("// DEBUG - No settings file found. Creating a new one")}
@@ -236,11 +234,32 @@ function openSettingsFile() {
             lastsync: timestamp,
             listMode: "disable"
         }
-        fs.writeFileSync('databases/settings.json', JSON.stringify(settings))
-
-        siastatsGeolocFile()
+        geolocUser(settings)
     }});
 }
+
+
+function geolocUser(settings) {
+    // Geolocates user. This is not necessary for any function of Decentralizer-CLI,
+    // but all the json files need to be compatible with Decentralizer-GUI, which uses the user geoloc for showing the map
+    var ipquery = "http://ip-api.com/json/"
+
+    axios.get(ipquery).then(response => {
+        var ipAPI = response.data
+        settings.userLon = parseFloat(ipAPI.lon)
+        settings.userLat = parseFloat(ipAPI.lat)
+        fs.writeFileSync('databases/settings.json', JSON.stringify(settings))
+        siastatsGeolocFile()
+
+    }).catch(error => {
+        console.log("failed")
+        console.log(error)
+        fs.writeFileSync('databases/settings.json', JSON.stringify(settings))
+        siastatsGeolocFile()
+    })
+}
+
+
 
 
 function siastatsGeolocFile() {
@@ -556,6 +575,7 @@ function contractsIpAssign(siastatsFarms, contracts, siastatsGeoloc) {
                 contracts[i].lat = siastatsGeoloc[j].lat
                 contracts[i].as = siastatsGeoloc[j].as
                 contracts[i].countryName = siastatsGeoloc[j].countryName
+                contracts[i].countryCode = siastatsGeoloc[j].countryCode
                 contracts[i].siastatsScore = siastatsGeoloc[j].siastatsScore
             }
         }
@@ -836,7 +856,65 @@ function siastatsProcess(farmList, contracts, siastatsFarms) {
     if (debugMode == true) {console.log("// DEBUG - siastatsProcess() done. Saving farms.json")}
     fs.writeFileSync('databases/farms.json', JSON.stringify(farmList))
 
-    showFarms(farmList)
+    getConsensus(farmList)
+}
+
+
+function getConsensus(farmList) {
+    // These last 2 operations (get consensus and the allowance information) is not necessary for Decentralizer-CLI, but we keep it for
+    // compatibility with Decentralizer-GUI
+    var data = fs.readFileSync('databases/settings.json') // Reading settings file
+    var settings = JSON.parse(data)
+
+    sia.connect('localhost:9980')
+    .then((siad) => {siad.call('/consensus')
+        .then((api) => {
+            if (api.synced == true) {
+                // Update only if the client is fully synced, otherwise keep it null, to avoid issues on contracts timeline representation
+                settings.consensusHeight = api.height
+            } else {
+                settings.consensusHeight = null
+            }
+            getAllowanceInfo(farmList, settings)
+        })
+        .catch((err) => {
+            console.log("Error retrieving consensus height from Sia. Is Sia working, synced and connected to internet? Try this script again after restarting Sia.")
+            if (debugMode == true) {console.log("// DEBUG - Error: \n" + err)}
+            console.log()
+        })
+    })
+    .catch((err) => {
+        console.log("Error connecting to Sia. Start the Sia app (either daemon or UI) and try again")
+        console.log()
+        if (debugMode == true) {console.log("// DEBUG - Error: \n" + err)}
+    })
+}
+
+
+function getAllowanceInfo(farmList, settings) {
+    // Gets the renew window of contracts
+    sia.connect('localhost:9980')
+    .then((siad) => {siad.call('/renter')
+        .then((api) => {
+            try {
+                settings.renewWindow = api.settings.allowance.renewwindow
+            } catch(e) {
+                settings.renewWindow = null
+            }
+            fs.writeFileSync('databases/settings.json', JSON.stringify(settings))
+            showFarms(farmList)
+        })
+        .catch((err) => {
+            console.log("Error retrieving renter allowance settings from Sia. Is Sia working, synced and connected to internet? Try this script again after restarting Sia.")
+            if (debugMode == true) {console.log("// DEBUG - Error: \n" + err)}
+            console.log()
+        })
+    })
+    .catch((err) => {
+        console.log("Error connecting to Sia. Start the Sia app (either daemon or UI) and try again")
+        console.log()
+        if (debugMode == true) {console.log("// DEBUG - Error: \n" + err)}
+    })
 }
 
 

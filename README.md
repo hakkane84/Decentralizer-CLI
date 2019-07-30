@@ -79,6 +79,10 @@ For safety reasons, hosts flagged as unsafe by SiaStats can't be included on a w
 
 ## Changes log
 
+### v1.1.2
+
+* Fixed a a bug when scanning hosts and contracts but the user has not stablished an allowance yet
+
 ### v1.1.1
 
 * Corrected compatibility of the databases format with Decentralizer-GUI (they can be switched back and forth between both versions again)

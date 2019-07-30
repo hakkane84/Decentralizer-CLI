@@ -38,9 +38,9 @@ if (argument1 == "-debug" || argument1 == "--debug" || argument1 == "-d") {
 
 console.log()
 if (debugMode == false) {
-    console.log('\x1b[44m%s\x1b[0m', "*** KEOPS DECENTRALIZER v1.1.1 ***")
+    console.log('\x1b[44m%s\x1b[0m', "*** KEOPS DECENTRALIZER v1.1.2 ***")
 } else {
-    console.log('\x1b[44m%s\x1b[0m', "*** KEOPS DECENTRALIZER v1.1.1 (debug mode) ***")
+    console.log('\x1b[44m%s\x1b[0m', "*** KEOPS DECENTRALIZER v1.1.2 (debug mode) ***")
 }
 console.log()
 
@@ -527,7 +527,12 @@ function siaContracts(siastatsFarms, siastatsGeoloc) {
             var contracts = contractsAPI.contracts
 
             if (contracts.length == 0) {
-                console.log("ERROR: You don't have currently any active contract. Set an allowance first in Sia")
+                contracts = []
+                fs.writeFileSync('databases/contracts.json', JSON.stringify(contracts))
+                farms = []
+                fs.writeFileSync('databases/farms.json', JSON.stringify(farms))
+
+                console.log("Initial sync done: You don't have currently any active contract. Set an allowance first in Sia")
                 console.log()
             } else {
                 // Considering only the contracts good for upload and good for renew, this is, active
@@ -547,8 +552,17 @@ function siaContracts(siastatsFarms, siastatsGeoloc) {
 
         })
         .catch((err) => {
-            console.log("Error retrieving data from Sia. Is Sia working, synced and connected to internet? Try this script again after restarting Sia.")
-            if (debugMode == true) {console.log("// DEBUG - Error: " + err)}
+            // In some circumstances, abscense of contracts can make this call to fail
+            contracts = []
+            fs.writeFileSync('databases/contracts.json', JSON.stringify(contracts))
+            farms = []
+            fs.writeFileSync('databases/farms.json', JSON.stringify(farms))
+
+            if (debugMode == true) {
+                console.log("// DEBUG - Error retrieving data from Sia. Is Sia working, synced and connected to internet? Try this script again after restarting Sia.")
+                console.log("// DEBUG - Error: " + err)
+            }
+            console.log("Initial sync done: You don't have currently any active contract. Set an allowance first in Sia")
             console.log()
         })
     })

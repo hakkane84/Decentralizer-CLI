@@ -13,7 +13,7 @@ A tool for Sia renters that allows:
 
 Decentralizer connects to SiaStats.info and downloads a database of hosting farms. In addition to pure geolocation, SiaStats tracks hosts over time and employs additional algorithms, what allows discovering farms even if the farm operator changes the physical location of the hosts, uses VPNs or intentionally tries to block SiaStats at a network level. Thanks to the use of these databases from SiaStats, unsafe hosts (i.e., hosts that are known to be performing a Sybil attack or provoke damage or any kind), will be shown with an alert message, allowing the user to avoid them. You can learn more about it at https://siastats.info/hosting_farms. In case SiaStats is unavailable (for example during to a DDoS attack to its servers), a local copy of this database is used (`farms_definition.json`). This file can be updated manually: ask in the Sia official Discord in case you require an up-to-date database file.
 
-Ready-to-use binaries for Windows, MacOS and Linux can be downloaded here: https://github.com/hakkane84/Decentralizer-GUI/releases
+Ready-to-use binaries for Windows, MacOS and Linux can be downloaded here: https://github.com/hakkane84/Decentralizer-CLI/releases
 
 **Users preferring a graphical interface can use instead Decentralizer-GUI, which brings the same features in an easy and intuitive to use app: https://github.com/hakkane84/Decentralizer-GUI**
 

@@ -69,6 +69,21 @@ For safety reasons, hosts flagged as unsafe by SiaStats can't be included on a w
 * `npm install` to install all the dependencies
 * Use the same commands mentioned above, as for example `node decentralizer.js remove auto`
 
+## Inter-operating Decentralizer-GUI and Decentralizer-CLI
+
+The GUI and CLI versions of Decentralizer are inter-operable. This means that the data collected on one version and computer can be processed on a second one. This is specially useful for headless machines: the CLI can be installed on this computer, but the data can be exported to the main computer for its visualization using the GUI. Also, a filter of hosts can be created on the GUI and then exported to the headless machine to be applied by the CLI version.
+
+### Exporting data from the CLI version to the GUI
+
+* 1- On the remote machine, scan your contracts and hosts using the command `./decentralizer scan`
+* 2- Copy the folder `/databases` of the remote machine into the folder `/resources/app/databases` of the GUI version of the local machine
+* 3- Open Decentralizer-GUI on the local machine. The list of contracts, its timeline, its map, and the available hosts of the remote machine will be displayed
+
+### Importing a filter of hosts from the GUI into the CLI of a remote machine
+
+* 1- On the local machine, open Decentralizer-GUI and create the filter of hosts. You don't need to save it or apply it: it will be auto-saved as you add hosts
+* 2- Move the local folder `/resources/app/databases` into the folder `/databases` of the remote machine
+* 3- On the remote machine, use the command `./decentralizer filter apply`
 
 ## Compiling binaries
 
